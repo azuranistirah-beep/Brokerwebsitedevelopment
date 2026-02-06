@@ -1,15 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
+import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { TradingChart } from "./TradingChart";
 import { 
   LogOut, TrendingUp, Wallet, History, User, 
   LayoutDashboard, PieChart, ArrowUp, ArrowDown, 
-  Menu, CreditCard, HelpCircle, Settings
+  Menu, CreditCard, HelpCircle, Settings, Plus, Minus
 } from "lucide-react";
 import { projectId } from "/utils/supabase/info";
 import { toast } from "sonner";
@@ -17,6 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "./ui/sheet";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { supabase } from "../lib/supabaseClient";
 
 interface MemberDashboardProps {
@@ -72,8 +73,22 @@ const DEFAULT_ASSETS = [
   { symbol: "GOLD", name: "Gold", payout: 82 },
 ];
 
-const INVESTMENT_AMOUNTS = [1, 2, 5, 10, 20, 30, 40, 50, 100, 250, 500, 1000, 3000, 5000, 10000, 25000, 50000, 100000];
-const TIMEFRAMES = ["5s", "10s", "15s", "30s", "1m", "2m", "5m", "15m", "30m", "1h", "2h", "4h", "1d"];
+// ✅ POIN 4: Investment amounts dengan tombol +/- (urutan spesifik $1-$10,000)
+const INVESTMENT_AMOUNTS = [1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 250, 300, 500, 750, 1000, 2000, 3000, 5000, 6000, 7000, 8000, 10000];
+
+// ✅ POIN 5: Trade durations dalam bahasa Inggris (termasuk 1 Day)
+const TRADE_DURATIONS = [
+  { label: "5 Sec", value: "5s", seconds: 5 },
+  { label: "15 Sec", value: "15s", seconds: 15 },
+  { label: "30 Sec", value: "30s", seconds: 30 },
+  { label: "1 Min", value: "1m", seconds: 60 },
+  { label: "5 Min", value: "5m", seconds: 300 },
+  { label: "15 Min", value: "15m", seconds: 900 },
+  { label: "30 Min", value: "30m", seconds: 1800 },
+  { label: "1 Hour", value: "1h", seconds: 3600 },
+  { label: "4 Hour", value: "4h", seconds: 14400 },
+  { label: "1 Day", value: "1d", seconds: 86400 },
+];
 
 export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -86,7 +101,11 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
   
   // Trade form state
   const [tradeAmount, setTradeAmount] = useState<number>(10);
-  const [selectedTimeframe, setSelectedTimeframe] = useState("1m");
+  const [selectedDuration, setSelectedDuration] = useState("1m");
+  
+  // ✅ POIN 1: Current price sinkron 100% dengan TradingView chart
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [previousPrice, setPreviousPrice] = useState<number>(0);
 
   // Wallet State
   const [isDepositOpen, setIsDepositOpen] = useState(false);
@@ -99,6 +118,14 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
     loadAssets();
     loadTransactions();
   }, []);
+
+  // Track price changes
+  useEffect(() => {
+    if (currentPrice > 0 && currentPrice !== previousPrice) {
+      console.log(`💰 [MemberDashboard] Price Updated: ${selectedAsset.symbol} = $${currentPrice.toFixed(2)}`);
+      setPreviousPrice(currentPrice);
+    }
+  }, [currentPrice]);
 
   const loadUserProfile = async () => {
     try {
@@ -143,7 +170,6 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
         const result = await response.json();
         if (result.assets && result.assets.length > 0) {
           setAssets(result.assets);
-          // Update selected asset if it exists in new list
           const current = result.assets.find((a: Asset) => a.symbol === selectedAsset.symbol);
           if (current) setSelectedAsset(current);
           else setSelectedAsset(result.assets[0]);
@@ -172,6 +198,11 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
   };
 
   const handleExecuteTrade = async (type: "buy" | "sell") => {
+    if (currentPrice === 0) {
+      toast.error("Waiting for market price...");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await fetch(
@@ -186,7 +217,8 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
             asset: selectedAsset.symbol,
             type,
             amount: tradeAmount,
-            duration: selectedTimeframe
+            duration: selectedDuration,
+            entryPrice: currentPrice
           }),
         }
       );
@@ -194,7 +226,7 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
       const result = await response.json();
 
       if (response.ok) {
-        toast.success(`Trade executed: ${type.toUpperCase()} ${selectedAsset.symbol}`);
+        toast.success(`Trade executed: ${type.toUpperCase()} ${selectedAsset.symbol} at $${currentPrice.toFixed(2)}`);
         loadUserProfile();
         loadTrades();
       } else {
@@ -218,7 +250,7 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({ tradeId }),
+          body: JSON.stringify({ tradeId, exitPrice: currentPrice }),
         }
       );
 
@@ -290,10 +322,29 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
     onLogout();
   };
 
+  // Handle amount increase/decrease with +/- buttons
+  const handleAmountIncrease = () => {
+    const currentIndex = INVESTMENT_AMOUNTS.indexOf(tradeAmount);
+    if (currentIndex < INVESTMENT_AMOUNTS.length - 1) {
+      setTradeAmount(INVESTMENT_AMOUNTS[currentIndex + 1]);
+    }
+  };
+
+  const handleAmountDecrease = () => {
+    const currentIndex = INVESTMENT_AMOUNTS.indexOf(tradeAmount);
+    if (currentIndex > 0) {
+      setTradeAmount(INVESTMENT_AMOUNTS[currentIndex - 1]);
+    }
+  };
+
   const openTrades = trades.filter(t => t.status === 'open');
   const closedTrades = trades.filter(t => t.status === 'closed');
   
-  const estimatedPayout = tradeAmount + (tradeAmount * (selectedAsset.payout / 100));
+  // ✅ POIN 3: Sinkronisasi stats - Total Trades, Win Rate, Total Profit
+  const totalTrades = closedTrades.length;
+  const winTrades = closedTrades.filter(t => t.profit > 0).length;
+  const winRate = totalTrades > 0 ? (winTrades / totalTrades) * 100 : 0;
+  const totalProfit = closedTrades.reduce((sum, t) => sum + t.profit, 0);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-slate-900 border-r border-slate-800 w-64">
@@ -379,167 +430,253 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
         </header>
 
         {activeTab === "trade" ? (
-          <div className="flex flex-1 overflow-hidden">
-             {/* Chart Area */}
-             <div className="flex-1 flex flex-col min-w-0 bg-slate-950 relative">
-               <div className="absolute top-4 left-4 z-10 flex gap-2">
-                 <Select value={selectedAsset.symbol} onValueChange={(val) => setSelectedAsset(assets.find(a => a.symbol === val) || assets[0])}>
-                    <SelectTrigger className="w-[180px] bg-slate-800 border-slate-700 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                      {assets.map(asset => (
-                        <SelectItem key={asset.symbol} value={asset.symbol}>
-                          <div className="flex justify-between w-full gap-4">
-                            <span>{asset.name}</span>
-                            <span className="text-green-400">{asset.payout}%</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                 </Select>
-
-                 <Select value={selectedTimeframe} onValueChange={setSelectedTimeframe}>
-                    <SelectTrigger className="w-[100px] bg-slate-800 border-slate-700 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                      {TIMEFRAMES.map(tf => (
-                        <SelectItem key={tf} value={tf}>{tf}</SelectItem>
-                      ))}
-                    </SelectContent>
-                 </Select>
-               </div>
-
-               <div className="flex-1">
-                 <TradingChart symbol={selectedAsset.symbol} interval={selectedTimeframe} />
-               </div>
-
-               {/* Bottom Panel - Trades */}
-               <div className="h-64 border-t border-slate-800 bg-slate-900 flex flex-col">
-                  <div className="flex items-center px-4 border-b border-slate-800">
-                     <Button variant="ghost" className="rounded-none border-b-2 border-blue-500 text-white h-10 px-4">Open Trades ({openTrades.length})</Button>
-                     <Button variant="ghost" className="rounded-none text-gray-400 h-10 px-4" onClick={() => setActiveTab("history")}>Closed Trades</Button>
+          <div className="flex-1 flex flex-col overflow-hidden bg-slate-950">
+            {/* ✅ POIN 3: Top Stats Bar - Sinkronisasi Total Trades, Win Rate, Total Profit */}
+            <div className="bg-slate-900 border-b border-slate-800 px-6 py-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  <div>
+                    <div className="text-xs text-gray-400">Total Trades</div>
+                    <div className="text-lg font-bold text-white">{totalTrades}</div>
                   </div>
-                  <ScrollArea className="flex-1">
-                    <Table>
-                      <TableHeader>
+                  <div>
+                    <div className="text-xs text-gray-400">Win Rate</div>
+                    <div className="text-lg font-bold text-green-400">{winRate.toFixed(1)}%</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-400">Total Profit</div>
+                    <div className={`text-lg font-bold ${totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {totalProfit >= 0 ? '+' : ''}${totalProfit.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  {/* ✅ POIN 2: "Live Market" badge (bukan "Live Simulation") */}
+                  <Badge className="bg-green-600 text-white animate-pulse">Live Market</Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* ✅ POIN 6 & 7: Chart Area - Full width, controls di bawah */}
+            <div className="flex-1 flex flex-col min-w-0 relative">
+              {/* Asset Selector - Top Left */}
+              <div className="absolute top-4 left-4 z-10">
+                <Select value={selectedAsset.symbol} onValueChange={(val) => setSelectedAsset(assets.find(a => a.symbol === val) || assets[0])}>
+                   <SelectTrigger className="w-[200px] bg-slate-800 border-slate-700 text-white">
+                     <SelectValue />
+                   </SelectTrigger>
+                   <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                     {assets.map(asset => (
+                       <SelectItem key={asset.symbol} value={asset.symbol}>
+                         <div className="flex justify-between w-full gap-4">
+                           <span>{asset.name}</span>
+                           <span className="text-green-400">{asset.payout}%</span>
+                         </div>
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
+                </Select>
+              </div>
+
+              {/* ✅ POIN 1: Current Price Display - Sinkron 100% dengan TradingView */}
+              <div className="absolute top-4 right-4 z-10 bg-slate-900/95 border border-slate-700 rounded-lg px-4 py-2">
+                <div className="text-xs text-gray-400 mb-1">Current Price</div>
+                <div className="text-2xl font-bold text-white">
+                  {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : "Loading..."}
+                </div>
+              </div>
+
+              {/* Trading Chart - Now BIGGER and WIDER */}
+              <div className="flex-1 p-4">
+                <TradingChart 
+                  symbol={selectedAsset.symbol} 
+                  interval={selectedDuration}
+                  onPriceUpdate={setCurrentPrice}
+                />
+              </div>
+
+              {/* ✅ POIN 6: Trading Controls - BELOW CHART (Investment Amount & Duration) */}
+              <div className="border-t border-slate-800 bg-slate-900 p-4">
+                <div className="max-w-7xl mx-auto">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* ✅ POIN 4: Investment Amount dengan tombol +/- */}
+                    <Card className="bg-slate-800 border-slate-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-300 mb-3">Investment Amount</h3>
+                      <div className="flex items-center gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          className="bg-slate-700 border-slate-600 hover:bg-slate-600 text-white"
+                          onClick={handleAmountDecrease}
+                          disabled={INVESTMENT_AMOUNTS.indexOf(tradeAmount) === 0}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <div className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-center">
+                          <div className="text-2xl font-bold text-white">${tradeAmount.toLocaleString()}</div>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          className="bg-slate-700 border-slate-600 hover:bg-slate-600 text-white"
+                          onClick={handleAmountIncrease}
+                          disabled={INVESTMENT_AMOUNTS.indexOf(tradeAmount) === INVESTMENT_AMOUNTS.length - 1}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
+
+                    {/* ✅ POIN 5: Trade Duration - Dalam bahasa Inggris sampai 1 Day */}
+                    <Card className="bg-slate-800 border-slate-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-300 mb-3">Trade Duration</h3>
+                      <div className="grid grid-cols-5 gap-2">
+                        {TRADE_DURATIONS.map((duration) => (
+                          <Button
+                            key={duration.value}
+                            variant={selectedDuration === duration.value ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setSelectedDuration(duration.value)}
+                            className={selectedDuration === duration.value 
+                              ? "bg-blue-600 hover:bg-blue-700 text-white text-xs" 
+                              : "bg-slate-700 border-slate-600 text-gray-300 hover:bg-slate-600 text-xs"
+                            }
+                          >
+                            {duration.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </Card>
+
+                    {/* Trade Execution Buttons */}
+                    <Card className="bg-slate-800 border-slate-700 p-4">
+                      <h3 className="text-sm font-semibold text-gray-300 mb-3">Execute Trade</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Button 
+                          onClick={() => handleExecuteTrade('buy')}
+                          disabled={loading || currentPrice === 0}
+                          className="bg-green-600 hover:bg-green-700 text-white h-12 text-lg font-bold"
+                        >
+                          <ArrowUp className="mr-2 h-5 w-5" />
+                          UP
+                        </Button>
+                        <Button 
+                          onClick={() => handleExecuteTrade('sell')}
+                          disabled={loading || currentPrice === 0}
+                          className="bg-red-600 hover:bg-red-700 text-white h-12 text-lg font-bold"
+                        >
+                          <ArrowDown className="mr-2 h-5 w-5" />
+                          DOWN
+                        </Button>
+                      </div>
+                      <div className="mt-3 text-center text-xs text-gray-400">
+                        Potential Profit: <span className="text-green-400 font-bold">+${(tradeAmount * (selectedAsset.payout / 100)).toFixed(2)}</span>
+                      </div>
+                    </Card>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Open Trades - Bottom Panel */}
+            <div className="h-48 border-t border-slate-800 bg-slate-900 flex flex-col">
+               <div className="flex items-center px-4 border-b border-slate-800">
+                  <Button variant="ghost" className="rounded-none border-b-2 border-blue-500 text-white h-10 px-4">Open Trades ({openTrades.length})</Button>
+                  <Button variant="ghost" className="rounded-none text-gray-400 h-10 px-4" onClick={() => setActiveTab("history")}>History ({closedTrades.length})</Button>
+               </div>
+               <ScrollArea className="flex-1">
+                 <Table>
+                   <TableHeader>
+                     <TableRow className="border-slate-800 hover:bg-slate-900">
+                       <TableHead className="text-gray-400">Asset</TableHead>
+                       <TableHead className="text-gray-400">Amount</TableHead>
+                       <TableHead className="text-gray-400">Entry Price</TableHead>
+                       <TableHead className="text-gray-400">Direction</TableHead>
+                       <TableHead className="text-gray-400">Action</TableHead>
+                     </TableRow>
+                   </TableHeader>
+                   <TableBody>
+                     {openTrades.length === 0 ? (
                         <TableRow className="border-slate-800 hover:bg-slate-900">
-                          <TableHead className="text-gray-400">Asset</TableHead>
-                          <TableHead className="text-gray-400">Amount</TableHead>
-                          <TableHead className="text-gray-400">Entry Price</TableHead>
-                          <TableHead className="text-gray-400">Direction</TableHead>
-                          <TableHead className="text-gray-400">Profit</TableHead>
+                          <TableCell colSpan={5} className="text-center text-gray-500 py-8">No active trades</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {openTrades.length === 0 ? (
-                           <TableRow className="border-slate-800 hover:bg-slate-900">
-                             <TableCell colSpan={5} className="text-center text-gray-500 py-8">No active trades</TableCell>
-                           </TableRow>
-                        ) : (
-                          openTrades.map(trade => (
-                            <TableRow key={trade.id} className="border-slate-800 hover:bg-slate-800">
-                               <TableCell className="text-white font-medium">{trade.asset}</TableCell>
-                               <TableCell className="text-white">${trade.amount}</TableCell>
-                               <TableCell className="text-white">{trade.entryPrice.toFixed(2)}</TableCell>
-                               <TableCell>
-                                  <span className={trade.type === 'buy' ? "text-green-400" : "text-red-400"}>
-                                    {trade.type.toUpperCase()}
-                                  </span>
-                               </TableCell>
-                               <TableCell>
-                                 <Button 
-                                   size="sm" 
-                                   variant="secondary" 
-                                   className="h-7 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700"
-                                   onClick={() => handleCloseTrade(trade.id)}
-                                   disabled={loading}
-                                 >
-                                   Close / Settle
-                                 </Button>
-                               </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-               </div>
-             </div>
-
-             {/* Right Trading Panel */}
-             <div className="w-80 bg-slate-900 border-l border-slate-800 flex flex-col p-4 overflow-y-auto">
-               <div className="mb-6">
-                 <Label className="text-gray-400 mb-2 block">Investment Amount</Label>
-                 <Input 
-                   type="number" 
-                   value={tradeAmount} 
-                   onChange={(e) => setTradeAmount(Number(e.target.value))}
-                   className="bg-slate-800 border-slate-700 text-white text-lg font-bold h-12 mb-4" 
-                 />
-                 
-                 <div className="grid grid-cols-3 gap-2">
-                   {INVESTMENT_AMOUNTS.map(amount => (
-                     <Button 
-                       key={amount} 
-                       variant={tradeAmount === amount ? "default" : "outline"}
-                       className={`h-8 text-xs ${tradeAmount === amount ? "bg-blue-600 hover:bg-blue-700" : "bg-slate-800 border-slate-700 text-gray-300 hover:bg-slate-700"}`}
-                       onClick={() => setTradeAmount(amount)}
-                     >
-                       ${amount >= 1000 ? `${amount/1000}K` : amount}
-                     </Button>
-                   ))}
-                 </div>
-               </div>
-
-               <div className="mb-6">
-                 <Label className="text-gray-400 mb-2 block">Duration</Label>
-                 <div className="bg-slate-800 rounded p-2 text-center text-white font-bold border border-slate-700">
-                    {selectedTimeframe}
-                 </div>
-               </div>
-
-               <div className="mt-auto space-y-4">
-                 <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-                    <div className="flex justify-between text-sm mb-1">
-                       <span className="text-gray-400">Payout</span>
-                       <span className="text-green-400 font-bold">{selectedAsset.payout}%</span>
-                    </div>
-                    <div className="flex justify-between items-end">
-                       <span className="text-gray-400 text-sm">Profit:</span>
-                       <span className="text-xl font-bold text-green-400">+${(tradeAmount * (selectedAsset.payout/100)).toFixed(2)}</span>
-                    </div>
-                 </div>
-
-                 <Button 
-                   className="w-full h-14 bg-green-500 hover:bg-green-600 text-white text-lg font-bold flex flex-col items-center justify-center gap-0"
-                   onClick={() => handleExecuteTrade("buy")}
-                   disabled={loading}
-                 >
-                   <div className="flex items-center gap-2">
-                     <span>UP</span>
-                     <ArrowUp className="h-5 w-5" />
-                   </div>
-                   <span className="text-xs font-normal opacity-80">Buy at market</span>
-                 </Button>
-
-                 <Button 
-                   className="w-full h-14 bg-red-500 hover:bg-red-600 text-white text-lg font-bold flex flex-col items-center justify-center gap-0"
-                   onClick={() => handleExecuteTrade("sell")}
-                   disabled={loading}
-                 >
-                   <div className="flex items-center gap-2">
-                     <span>DOWN</span>
-                     <ArrowDown className="h-5 w-5" />
-                   </div>
-                   <span className="text-xs font-normal opacity-80">Sell at market</span>
-                 </Button>
-               </div>
-             </div>
+                     ) : (
+                       openTrades.map(trade => (
+                         <TableRow key={trade.id} className="border-slate-800 hover:bg-slate-800">
+                            <TableCell className="text-white font-medium">{trade.asset}</TableCell>
+                            <TableCell className="text-white">${trade.amount}</TableCell>
+                            <TableCell className="text-white">{trade.entryPrice.toFixed(2)}</TableCell>
+                            <TableCell>
+                               <span className={trade.type === 'buy' ? "text-green-400" : "text-red-400"}>
+                                 {trade.type.toUpperCase()}
+                               </span>
+                            </TableCell>
+                            <TableCell>
+                              <Button 
+                                size="sm" 
+                                variant="secondary" 
+                                className="h-7 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700"
+                                onClick={() => handleCloseTrade(trade.id)}
+                                disabled={loading}
+                              >
+                                Close
+                              </Button>
+                            </TableCell>
+                         </TableRow>
+                       ))
+                     )}
+                   </TableBody>
+                 </Table>
+               </ScrollArea>
+            </div>
+          </div>
+        ) : activeTab === "history" ? (
+          <div className="flex-1 overflow-auto p-6">
+            <h1 className="text-2xl font-bold text-white mb-6">Trade History</h1>
+            <Card className="bg-slate-900 border-slate-800">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-slate-800">
+                    <TableHead className="text-gray-400">Asset</TableHead>
+                    <TableHead className="text-gray-400">Type</TableHead>
+                    <TableHead className="text-gray-400">Amount</TableHead>
+                    <TableHead className="text-gray-400">Entry</TableHead>
+                    <TableHead className="text-gray-400">Exit</TableHead>
+                    <TableHead className="text-gray-400">Profit</TableHead>
+                    <TableHead className="text-gray-400">Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {closedTrades.length === 0 ? (
+                    <TableRow className="border-slate-800">
+                      <TableCell colSpan={7} className="text-center text-gray-500 py-8">No trade history</TableCell>
+                    </TableRow>
+                  ) : (
+                    closedTrades.map(trade => (
+                      <TableRow key={trade.id} className="border-slate-800 hover:bg-slate-800">
+                        <TableCell className="text-white font-medium">{trade.asset}</TableCell>
+                        <TableCell>
+                          <Badge className={trade.type === 'buy' ? 'bg-green-600' : 'bg-red-600'}>
+                            {trade.type.toUpperCase()}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-white">${trade.amount}</TableCell>
+                        <TableCell className="text-white">${trade.entryPrice.toFixed(2)}</TableCell>
+                        <TableCell className="text-white">${trade.exitPrice?.toFixed(2) || 'N/A'}</TableCell>
+                        <TableCell className={trade.profit >= 0 ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
+                          {trade.profit >= 0 ? '+' : ''}${trade.profit.toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-gray-400">{new Date(trade.closedAt || '').toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
           </div>
         ) : activeTab === "wallet" ? (
-          <div className="p-8 max-w-4xl mx-auto w-full">
+          <div className="flex-1 overflow-auto p-6">
             <h1 className="text-3xl font-bold text-white mb-8">Wallet</h1>
             <div className="grid md:grid-cols-3 gap-6 mb-8">
                <Card className="bg-gradient-to-br from-blue-600 to-blue-800 border-none p-6 text-white">

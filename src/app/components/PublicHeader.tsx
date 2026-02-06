@@ -44,7 +44,7 @@ export function PublicHeader({ onLogin, onGetStarted, onNavigate, currentView }:
   };
 
   const navItems = [
-    { id: "markets", label: "Trading Demo" },
+    { id: "markets", label: "Markets" },
     { id: "charts", label: "Chart" },
     { id: "screener", label: "Screener" },
     { id: "news", label: "News" },

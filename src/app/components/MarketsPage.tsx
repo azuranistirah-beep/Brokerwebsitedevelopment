@@ -3,11 +3,14 @@ import { Card } from "./ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { TrendingUp, TrendingDown, Clock, DollarSign, Target, Trophy, Activity } from "lucide-react";
+import { TrendingUp, TrendingDown, Clock, DollarSign, Target, Trophy, Activity, Plus, Minus } from "lucide-react";
 import { TickerTape } from "./TickerTape";
 import { TradingChart } from "./TradingChart";
 import { toast } from "sonner";
 import { PositionCountdown } from "./PositionCountdown";
+import { realTimePriceService } from "../lib/realTimePrice";
+import { MiniChart } from "./MiniChart";
+import { SymbolSelector } from "./SymbolSelector"; // ✅ NEW!
 
 interface DemoAccount {
   balance: number;
@@ -41,7 +44,10 @@ interface TradeHistory {
   closedAt: string;
 }
 
-const INVESTMENT_AMOUNTS = [1, 2, 5, 10, 20, 30, 40, 50, 100, 250, 500, 1000, 3000, 5000, 10000, 25000, 50000, 100000];
+// ✅ POIN 4: Investment amounts dengan +/- buttons (urutan spesifik $1-$10,000)
+const INVESTMENT_AMOUNTS = [1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 250, 300, 500, 750, 1000, 2000, 3000, 5000, 6000, 7000, 8000, 10000];
+
+// ✅ POIN 5: Trade durations dalam bahasa Inggris (termasuk 1 Day)
 const DURATIONS = [
   { label: "5 Sec", value: "5s" },
   { label: "15 Sec", value: "15s" },
@@ -53,6 +59,28 @@ const DURATIONS = [
   { label: "1 Hour", value: "1h" },
   { label: "4 Hour", value: "4h" },
   { label: "1 Day", value: "1d" },
+];
+
+// ✅ Popular Assets - More assets than homepage (Real-time charts)
+const POPULAR_ASSETS = [
+  { symbol: "FX:EURUSD", name: "EUR/USD" },
+  { symbol: "NASDAQ:AAPL", name: "Apple Inc" },
+  { symbol: "BINANCE:BTCUSDT", name: "Bitcoin" },
+  { symbol: "NASDAQ:TSLA", name: "Tesla" },
+  { symbol: "NASDAQ:NVDA", name: "NVIDIA" },
+  { symbol: "BINANCE:ETHUSDT", name: "Ethereum" },
+  { symbol: "FX:GBPUSD", name: "GBP/USD" },
+  { symbol: "NASDAQ:GOOGL", name: "Google" },
+  { symbol: "NASDAQ:MSFT", name: "Microsoft" },
+  { symbol: "BINANCE:BNBUSDT", name: "Binance Coin" },
+  { symbol: "NASDAQ:AMZN", name: "Amazon" },
+  { symbol: "FX:USDJPY", name: "USD/JPY" },
+  { symbol: "NASDAQ:META", name: "Meta" },
+  { symbol: "BINANCE:SOLUSDT", name: "Solana" },
+  { symbol: "FX:AUDUSD", name: "AUD/USD" },
+  { symbol: "NASDAQ:NFLX", name: "Netflix" },
+  { symbol: "BINANCE:ADAUSDT", name: "Cardano" },
+  { symbol: "NASDAQ:AMD", name: "AMD" },
 ];
 
 // Asset type detection and market hours
@@ -143,11 +171,11 @@ const isMarketOpen = (symbol: string): { isOpen: boolean; message: string } => {
 };
 
 export function MarketsPage() {
-  const [selectedSymbol, setSelectedSymbol] = useState("BTCUSD");
+  const [selectedSymbol, setSelectedSymbol] = useState("BINANCE:BTCUSDT"); // ✅ MATCH WITH TRADINGVIEW!
   const [selectedAmount, setSelectedAmount] = useState(10);
   const [selectedDuration, setSelectedDuration] = useState("1m");
   const [demoAccount, setDemoAccount] = useState<DemoAccount>({
-    balance: 200000,
+    balance: 10000,
     totalTrades: 0,
     winRate: 0,
     totalProfit: 0,
@@ -155,15 +183,50 @@ export function MarketsPage() {
   });
   const [positions, setPositions] = useState<Position[]>([]);
   const [history, setHistory] = useState<TradeHistory[]>([]);
-  const [currentPrice, setCurrentPrice] = useState(65000);
+  
+  // ✅ CRITICAL FIX: Store chart widget reference to get REAL price!
+  const [chartWidget, setChartWidget] = useState<any>(null);
+  
+  // ✅ POIN 1: Current price sinkron 100% dengan TradingView chart
+  const [currentPrice, setCurrentPrice] = useState(70968);
+  const [previousPrice, setPreviousPrice] = useState(70968);
+  const [priceChange, setPriceChange] = useState(0); // Track price change for animation
 
   const payoutPercentage = 95;
   const potentialProfit = (selectedAmount * payoutPercentage) / 100;
   const marketStatus = isMarketOpen(selectedSymbol);
 
+  // Track price changes for visual feedback
+  useEffect(() => {
+    const change = currentPrice - previousPrice;
+    setPriceChange(change);
+    setPreviousPrice(currentPrice);
+
+    // Reset animation after 500ms
+    const timer = setTimeout(() => setPriceChange(0), 500);
+    return () => clearTimeout(timer);
+  }, [currentPrice]);
+
+  // ✅ REAL-TIME PRICE UPDATE - Subscribe langsung ke realTimePriceService (sama seperti ticker tape!)
+  useEffect(() => {
+    console.log(`🔥 [Markets] Subscribing to REAL-TIME price for ${selectedSymbol}...`);
+    
+    // Subscribe to real-time price updates
+    const unsubscribe = realTimePriceService.subscribe(selectedSymbol, (price) => {
+      setCurrentPrice(price);
+      console.log(`��� [Markets] Real-time price update: ${selectedSymbol} = $${price.toFixed(2)}`);
+    });
+
+    // Cleanup on unmount or symbol change
+    return () => {
+      console.log(`🛑 [Markets] Unsubscribing from ${selectedSymbol}`);
+      unsubscribe();
+    };
+  }, [selectedSymbol]);
+
   // Log price updates
   useEffect(() => {
-    console.log(`💵 Price updated: ${selectedSymbol} = $${currentPrice.toFixed(2)}`);
+    console.log(`💵 [Trading Demo] Price updated: ${selectedSymbol} = $${currentPrice.toFixed(2)}`);
   }, [currentPrice, selectedSymbol]);
 
   // Check for expired positions every second
@@ -175,8 +238,11 @@ export function MarketsPage() {
       if (expiredPositions.length > 0) {
         console.log(`⏰ Found ${expiredPositions.length} expired position(s)!`);
         expiredPositions.forEach(position => {
-          console.log(`📊 Closing position: ${position.asset} ${position.type} | Current Price: $${currentPrice}`);
-          closePositionWithRealPrice(position, currentPrice);
+          // ✅ CRITICAL: Get EXACT current price from realTimePriceService at exit moment
+          const realExitPrice = realTimePriceService.getCurrentPrice(position.asset);
+          
+          console.log(`📊 Closing position: ${position.asset} ${position.type} | Entry: $${position.entryPrice.toFixed(2)} | Exit: $${realExitPrice.toFixed(2)}`);
+          closePositionWithRealPrice(position, realExitPrice);
         });
       }
     };
@@ -186,7 +252,8 @@ export function MarketsPage() {
   }, [positions, currentPrice]);
 
   const closePositionWithRealPrice = (position: Position, exitPrice: number) => {
-    // Use REAL price from TradingView chart
+    // ✅ CRITICAL: Use REAL price from TradingView chart
+    // WIN condition: UP trade wins if exit > entry, DOWN trade wins if exit < entry
     const isWin = position.type === 'up' 
       ? exitPrice > position.entryPrice 
       : exitPrice < position.entryPrice;
@@ -206,28 +273,40 @@ export function MarketsPage() {
       closedAt: new Date().toISOString()
     };
 
-    // Update state
-    setHistory(prev => [trade, ...prev]);
-    setPositions(prev => prev.filter(p => p.id !== position.id));
+    // ✅ CRITICAL FIX: Use functional setState to avoid stale state
+    setHistory(prevHistory => {
+      const updatedHistory = [trade, ...prevHistory];
+      
+      // Calculate stats based on NEW history
+      const newTotalTrades = updatedHistory.length;
+      const wins = updatedHistory.filter(h => h.result === 'win').length;
+      const newWinRate = newTotalTrades > 0 ? (wins / newTotalTrades) * 100 : 0;
+      const newTotalProfit = updatedHistory.reduce((sum, h) => sum + h.profit, 0);
+      
+      // Update account stats with calculated values
+      setDemoAccount(prev => ({
+        ...prev,
+        balance: prev.balance + returnAmount,
+        totalTrades: newTotalTrades,
+        winRate: newWinRate,
+        totalProfit: newTotalProfit,
+        openPositions: prev.openPositions - 1
+      }));
+      
+      // Enhanced logging
+      console.log(`🔔 TRADE RESULT: ${isWin ? 'WIN' : 'LOSS'} | ${position.asset} ${position.type} | Entry: $${position.entryPrice.toFixed(2)} → Exit: $${exitPrice.toFixed(2)} | P/L: $${profit.toFixed(2)}`);
+      console.log(`📊 UPDATED STATS: Total Trades: ${newTotalTrades} | Wins: ${wins} | Win Rate: ${newWinRate.toFixed(2)}% | Total Profit: $${newTotalProfit.toFixed(2)}`);
+      console.log(`📋 History Length: ${updatedHistory.length} | Account Total Trades: ${newTotalTrades}`);
+      
+      return updatedHistory;
+    });
     
-    const newTotalTrades = demoAccount.totalTrades + 1;
-    const newTotalProfit = demoAccount.totalProfit + profit;
-    const allTrades = [trade, ...history];
-    const wins = allTrades.filter(h => h.result === 'win').length;
-    const newWinRate = (wins / newTotalTrades) * 100;
+    // Remove position from open positions
+    setPositions(prev => prev.filter(p => p.id !== position.id));
 
-    setDemoAccount(prev => ({
-      ...prev,
-      balance: prev.balance + returnAmount,
-      totalTrades: newTotalTrades,
-      winRate: newWinRate,
-      totalProfit: newTotalProfit,
-      openPositions: prev.openPositions - 1
-    }));
-
-    // Show BIG notification with result
-    const priceChange = exitPrice - position.entryPrice;
-    const priceChangePercent = ((priceChange / position.entryPrice) * 100).toFixed(2);
+    // Show notification
+    const priceChangeValue = exitPrice - position.entryPrice;
+    const priceChangePercent = ((priceChangeValue / position.entryPrice) * 100).toFixed(2);
     
     if (isWin) {
       toast.success(
@@ -235,10 +314,6 @@ export function MarketsPage() {
         {
           description: `${position.asset} ${position.type.toUpperCase()} • Entry: $${position.entryPrice.toFixed(2)} → Exit: $${exitPrice.toFixed(2)} (${Number(priceChangePercent) > 0 ? '+' : ''}${priceChangePercent}%)`,
           duration: 10000,
-          action: {
-            label: "View History",
-            onClick: () => console.log("View history")
-          }
         }
       );
     } else {
@@ -247,16 +322,9 @@ export function MarketsPage() {
         {
           description: `${position.asset} ${position.type.toUpperCase()} • Entry: $${position.entryPrice.toFixed(2)} → Exit: $${exitPrice.toFixed(2)} (${Number(priceChangePercent) > 0 ? '+' : ''}${priceChangePercent}%)`,
           duration: 10000,
-          action: {
-            label: "Try Again",
-            onClick: () => console.log("Try again")
-          }
         }
       );
     }
-
-    // Log to console for debugging
-    console.log(`🔔 TRADE RESULT: ${isWin ? 'WIN' : 'LOSS'} | ${position.asset} ${position.type} | Entry: $${position.entryPrice.toFixed(2)} → Exit: $${exitPrice.toFixed(2)} (${priceChangePercent}%) | P/L: $${profit.toFixed(2)}`);
   };
 
   const handleTrade = (type: 'up' | 'down') => {
@@ -271,12 +339,23 @@ export function MarketsPage() {
       return;
     }
 
+    // ✅ CRITICAL: Use REAL current price from realTimePriceService
+    const realEntryPrice = realTimePriceService.getCurrentPrice(selectedSymbol);
+    
+    console.log(`\n========================================`);
+    console.log(`🔥 TRADE OPENED: ${type.toUpperCase()} ${selectedSymbol}`);
+    console.log(`💰 Entry Price (REAL from service): $${realEntryPrice.toFixed(2)}`);
+    console.log(`💰 Current Price (from state): $${currentPrice.toFixed(2)}`);
+    console.log(`📊 Investment Amount: $${selectedAmount.toFixed(2)}`);
+    console.log(`⏱️  Duration: ${selectedDuration}`);
+    console.log(`========================================\n`);
+
     const newPosition: Position = {
       id: `pos-${Date.now()}`,
-      asset: selectedSymbol,
+      asset: selectedSymbol, // ✅ CRITICAL: Save symbol for price lookup later
       type,
       amount: selectedAmount,
-      entryPrice: currentPrice,
+      entryPrice: realEntryPrice, // ✅ Use REAL price from service
       openedAt: new Date().toISOString(),
       duration: selectedDuration,
       payout: payoutPercentage,
@@ -290,9 +369,9 @@ export function MarketsPage() {
       openPositions: demoAccount.openPositions + 1
     });
 
-    // Show success notification
+    // Show success notification with REAL entry price
     toast.success(`Trade opened: ${type.toUpperCase()} ${selectedSymbol} - $${selectedAmount.toFixed(2)}`, {
-      description: `Entry price: $${currentPrice.toFixed(2)} • Duration: ${selectedDuration}`
+      description: `Entry price: $${realEntryPrice.toFixed(2)} • Duration: ${selectedDuration}`
     });
 
     // Position will auto-close via useEffect when expired
@@ -309,18 +388,19 @@ export function MarketsPage() {
     return 60000; // default 1 minute
   };
 
-  const formatCurrency = (value: number) => {
-    if (value >= 1000) {
-      return `$${(value / 1000).toFixed(1)}K`;
+  // ✅ POIN 4: Handle amount increase/decrease with +/- buttons
+  const handleAmountIncrease = () => {
+    const currentIndex = INVESTMENT_AMOUNTS.indexOf(selectedAmount);
+    if (currentIndex < INVESTMENT_AMOUNTS.length - 1) {
+      setSelectedAmount(INVESTMENT_AMOUNTS[currentIndex + 1]);
     }
-    return `$${value.toFixed(2)}`;
   };
 
-  const formatAmount = (amount: number) => {
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(0)}K`;
+  const handleAmountDecrease = () => {
+    const currentIndex = INVESTMENT_AMOUNTS.indexOf(selectedAmount);
+    if (currentIndex > 0) {
+      setSelectedAmount(INVESTMENT_AMOUNTS[currentIndex - 1]);
     }
-    return `$${amount}`;
   };
 
   return (
@@ -335,7 +415,7 @@ export function MarketsPage() {
           {/* Demo Account Header */}
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Trading Demo</h1>
+              <h1 className="text-2xl font-bold text-slate-900">Markets</h1>
               <p className="text-slate-500 text-sm">Practice trading with virtual funds</p>
             </div>
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-lg">
@@ -344,7 +424,7 @@ export function MarketsPage() {
             </div>
           </div>
 
-          {/* Trading Stats */}
+          {/* ✅ POIN 3: Trading Stats - Sinkronisasi akurat */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card className="p-4 border-slate-200 bg-white">
               <div className="flex items-center gap-3">
@@ -397,55 +477,99 @@ export function MarketsPage() {
             </Card>
           </div>
 
-          {/* Main Trading Interface */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Chart Area */}
-            <div className="lg:col-span-2">
-              <Card className="p-4 border-slate-200 bg-white">
-                {/* Real-time Price Display */}
-                <div className="mb-4 flex justify-between items-center bg-slate-50 p-4 rounded-lg">
-                  <div>
-                    <div className="text-sm text-slate-600 mb-1">Current Price</div>
-                    <div className="text-3xl font-bold text-slate-900">${currentPrice.toFixed(2)}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-slate-500 mb-1">{selectedSymbol}</div>
-                    <Badge className="bg-blue-600">Live</Badge>
-                  </div>
-                </div>
-                <div className="h-[500px]">
-                  <TradingChart 
-                    symbol={selectedSymbol}
-                    onPriceUpdate={setCurrentPrice}
-                  />
-                </div>
-              </Card>
+          {/* ✅ POIN 6 & 7: New Layout - Chart Full Width, Controls Below */}
+          <div className="space-y-6">
+            {/* ✅ Popular Assets Section - Real-time mini charts */}
+            <div className="mb-8">
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-slate-900 mb-2">Popular Assets</h2>
+                <p className="text-slate-500 text-sm">Track and trade the most popular stocks and cryptocurrencies</p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {POPULAR_ASSETS.map((asset) => (
+                  <Card 
+                    key={asset.symbol} 
+                    className={`bg-white p-3 h-[160px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer ${
+                      selectedSymbol === asset.symbol 
+                        ? 'border-2 border-blue-600 ring-2 ring-blue-200' 
+                        : 'border border-slate-200 hover:border-blue-400'
+                    }`}
+                    onClick={() => setSelectedSymbol(asset.symbol)} // ✅ Use FULL symbol with exchange prefix!
+                  >
+                    <MiniChart symbol={asset.symbol} />
+                  </Card>
+                ))}
+              </div>
             </div>
 
-            {/* Trading Panel */}
-            <div className="space-y-6">
-              {/* Investment Amount */}
+            {/* Chart Area - Full Width */}
+            <Card className="p-4 border-slate-200 bg-white">
+              {/* ✅ Symbol Selector + Current Price Display */}
+              <div className="grid md:grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-200">
+                {/* Symbol Selector */}
+                <SymbolSelector 
+                  selectedSymbol={selectedSymbol}
+                  onSymbolChange={(newSymbol) => {
+                    console.log(`🎯 [Markets] User selected symbol: "${newSymbol}"`);
+                    setSelectedSymbol(newSymbol);
+                  }}
+                />
+                
+                {/* Current Price Display */}
+                <div className="bg-slate-50 border-2 border-slate-300 rounded-lg px-4 py-3">
+                  <div className="text-xs text-slate-500 font-medium mb-1">Current Market Price</div>
+                  <div className="text-2xl font-bold text-slate-900">${currentPrice.toFixed(2)}</div>
+                  <Badge className={marketStatus.isOpen ? "bg-green-600 mt-2" : "bg-red-600 mt-2"}>
+                    {marketStatus.message}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* TradingView Chart */}
+              <div className="h-[500px]">
+                <TradingChart 
+                  symbol={selectedSymbol}
+                  onPriceUpdate={(price) => {
+                    setCurrentPrice(price);
+                  }}
+                />
+              </div>
+            </Card>
+
+            {/* ✅ POIN 6: Trading Controls - BELOW CHART */}
+            <div className="grid md:grid-cols-3 gap-6">
+              {/* ✅ POIN 4: Investment Amount dengan +/- buttons */}
               <Card className="p-6 border-slate-200 bg-white">
                 <h3 className="font-bold text-slate-900 mb-4">Investment Amount</h3>
-                <div className="grid grid-cols-3 gap-2 mb-4">
-                  {INVESTMENT_AMOUNTS.map((amount) => (
-                    <Button
-                      key={amount}
-                      variant={selectedAmount === amount ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedAmount(amount)}
-                      className={selectedAmount === amount 
-                        ? "bg-blue-600 hover:bg-blue-700 text-white" 
-                        : "border-slate-300 text-slate-700 hover:bg-slate-100"
-                      }
-                    >
-                      {formatAmount(amount)}
-                    </Button>
-                  ))}
+                <div className="flex items-center gap-2 mb-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleAmountDecrease}
+                    disabled={INVESTMENT_AMOUNTS.indexOf(selectedAmount) === 0}
+                    className="border-slate-300 hover:bg-slate-100"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1 bg-slate-50 border-2 border-blue-600 rounded-lg px-4 py-3 text-center">
+                    <div className="text-2xl font-bold text-slate-900">${selectedAmount.toLocaleString()}</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleAmountIncrease}
+                    disabled={INVESTMENT_AMOUNTS.indexOf(selectedAmount) === INVESTMENT_AMOUNTS.length - 1}
+                    className="border-slate-300 hover:bg-slate-100"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="text-xs text-slate-500 text-center">
+                  Range: $1 - $10,000
                 </div>
               </Card>
 
-              {/* Trade Duration */}
+              {/* ✅ POIN 5: Trade Duration - Dalam bahasa Inggris sampai 1 Day */}
               <Card className="p-6 border-slate-200 bg-white">
                 <h3 className="font-bold text-slate-900 mb-4">Trade Duration</h3>
                 <div className="grid grid-cols-3 gap-2">
@@ -456,8 +580,8 @@ export function MarketsPage() {
                       size="sm"
                       onClick={() => setSelectedDuration(duration.value)}
                       className={selectedDuration === duration.value 
-                        ? "bg-blue-600 hover:bg-blue-700 text-white" 
-                        : "border-slate-300 text-slate-700 hover:bg-slate-100"
+                        ? "bg-blue-600 hover:bg-blue-700 text-white text-xs" 
+                        : "border-slate-300 text-slate-700 hover:bg-slate-100 text-xs"
                       }
                     >
                       {duration.label}
@@ -466,51 +590,40 @@ export function MarketsPage() {
                 </div>
               </Card>
 
-              {/* Trade Summary */}
+              {/* Trade Summary & Buttons */}
               <Card className="p-6 border-slate-200 bg-white">
-                <h3 className="font-bold text-slate-900 mb-4">Trade Summary</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
+                <h3 className="font-bold text-slate-900 mb-4">Execute Trade</h3>
+                <div className="space-y-3 mb-4">
+                  <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-600">Market Status</span>
                     <Badge className={marketStatus.isOpen ? "bg-green-600" : "bg-red-600"}>
                       {marketStatus.isOpen ? "Open" : "Closed"}
                     </Badge>
                   </div>
-                  <div className="text-xs text-slate-500 -mt-1">{marketStatus.message}</div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Investment</span>
-                    <span className="font-bold text-slate-900">${selectedAmount.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center text-sm">
                     <span className="text-slate-600">Potential Profit</span>
                     <span className="font-bold text-green-600">+${potentialProfit.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-600">Payout</span>
-                    <span className="font-bold text-blue-600">{payoutPercentage}%</span>
-                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Button 
+                    onClick={() => handleTrade('up')}
+                    disabled={!marketStatus.isOpen}
+                    className="bg-green-600 hover:bg-green-700 text-white h-12 font-bold shadow-lg disabled:opacity-50"
+                  >
+                    <TrendingUp className="mr-2 h-5 w-5" />
+                    UP
+                  </Button>
+                  <Button 
+                    onClick={() => handleTrade('down')}
+                    disabled={!marketStatus.isOpen}
+                    className="bg-red-600 hover:bg-red-700 text-white h-12 font-bold shadow-lg disabled:opacity-50"
+                  >
+                    <TrendingDown className="mr-2 h-5 w-5" />
+                    DOWN
+                  </Button>
                 </div>
               </Card>
-
-              {/* UP/DOWN Buttons */}
-              <div className="grid grid-cols-2 gap-4">
-                <Button 
-                  onClick={() => handleTrade('up')}
-                  disabled={!marketStatus.isOpen}
-                  className="bg-green-600 hover:bg-green-700 text-white h-16 text-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <TrendingUp className="mr-2 h-6 w-6" />
-                  UP
-                </Button>
-                <Button 
-                  onClick={() => handleTrade('down')}
-                  disabled={!marketStatus.isOpen}
-                  className="bg-red-600 hover:bg-red-700 text-white h-16 text-lg font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <TrendingDown className="mr-2 h-6 w-6" />
-                  DOWN
-                </Button>
-              </div>
             </div>
           </div>
 
