@@ -1454,4 +1454,584 @@ app.post("/make-server-20da1dab/admin/kyc/reject", async (c) => {
   }
 });
 
+// ================== REAL MONEY TRADING ENDPOINTS ==================
+
+// Get user wallet (real money balance)
+app.get("/make-server-20da1dab/wallet", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    // Get or initialize wallet
+    let wallet = await kv.get(`wallet:${user.id}`);
+    if (!wallet) {
+      wallet = {
+        userId: user.id,
+        realBalance: 0,
+        lockedBalance: 0,
+        bonusBalance: 0,
+        totalDeposits: 0,
+        totalWithdrawals: 0,
+        totalProfits: 0,
+        totalLosses: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      await kv.set(`wallet:${user.id}`, wallet);
+    }
+
+    const totalEquity = wallet.realBalance + wallet.lockedBalance + wallet.bonusBalance;
+
+    return c.json({ 
+      wallet: {
+        ...wallet,
+        availableBalance: wallet.realBalance,
+        totalEquity
+      }
+    });
+  } catch (error) {
+    console.error("Wallet fetch error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Create deposit request
+app.post("/make-server-20da1dab/deposit/create", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const { amount, method, proofUrl } = await c.req.json();
+    
+    if (!amount || amount <= 0) {
+      return c.json({ error: "Invalid amount" }, 400);
+    }
+
+    if (!method) {
+      return c.json({ error: "Payment method required" }, 400);
+    }
+
+    const depositId = `dep_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const deposit = {
+      depositId,
+      userId: user.id,
+      amount,
+      method,
+      proofUrl: proofUrl || null,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      approvedAt: null,
+      approvedBy: null,
+      rejectedAt: null,
+      rejectedBy: null,
+      rejectionReason: null
+    };
+
+    await kv.set(`deposit:${depositId}`, deposit);
+
+    return c.json({ success: true, deposit });
+  } catch (error) {
+    console.error("Create deposit error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Get user deposits
+app.get("/make-server-20da1dab/deposits", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const allDeposits = await kv.getByPrefix(`deposit:`);
+    const userDeposits = allDeposits.filter((d: any) => d.userId === user.id);
+    
+    // Sort by date, newest first
+    userDeposits.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return c.json({ deposits: userDeposits });
+  } catch (error) {
+    console.error("Get deposits error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Create withdrawal request
+app.post("/make-server-20da1dab/withdraw/create", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const { amount, method, accountDetails } = await c.req.json();
+    
+    if (!amount || amount <= 0) {
+      return c.json({ error: "Invalid amount" }, 400);
+    }
+
+    if (!method || !accountDetails) {
+      return c.json({ error: "Method and account details required" }, 400);
+    }
+
+    // Check wallet balance
+    const wallet = await kv.get(`wallet:${user.id}`);
+    if (!wallet || wallet.realBalance < amount) {
+      return c.json({ error: "Insufficient balance" }, 400);
+    }
+
+    // Minimum withdrawal check
+    const MIN_WITHDRAWAL = 10;
+    if (amount < MIN_WITHDRAWAL) {
+      return c.json({ error: `Minimum withdrawal is $${MIN_WITHDRAWAL}` }, 400);
+    }
+
+    const withdrawalId = `wd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Lock the funds
+    wallet.realBalance -= amount;
+    wallet.lockedBalance += amount;
+    wallet.updatedAt = new Date().toISOString();
+    await kv.set(`wallet:${user.id}`, wallet);
+
+    const withdrawal = {
+      withdrawalId,
+      userId: user.id,
+      amount,
+      method,
+      accountDetails,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      approvedAt: null,
+      approvedBy: null,
+      rejectedAt: null,
+      rejectedBy: null,
+      rejectionReason: null,
+      paidAt: null
+    };
+
+    await kv.set(`withdrawal:${withdrawalId}`, withdrawal);
+
+    return c.json({ success: true, withdrawal });
+  } catch (error) {
+    console.error("Create withdrawal error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Get user withdrawals
+app.get("/make-server-20da1dab/withdrawals", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const allWithdrawals = await kv.getByPrefix(`withdrawal:`);
+    const userWithdrawals = allWithdrawals.filter((w: any) => w.userId === user.id);
+    
+    // Sort by date, newest first
+    userWithdrawals.sort((a: any, b: any) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    return c.json({ withdrawals: userWithdrawals });
+  } catch (error) {
+    console.error("Get withdrawals error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Execute real money trade
+app.post("/make-server-20da1dab/trade/real", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    // Check KYC status
+    const userProfile = await kv.get(`user:${user.id}`);
+    if (!userProfile) return c.json({ error: "User not found" }, 404);
+    
+    if (userProfile.kycStatus !== 'verified') {
+      return c.json({ error: "KYC verification required for real money trading" }, 403);
+    }
+
+    const { symbol, direction, amount, duration } = await c.req.json();
+
+    // Validate inputs
+    if (!symbol || !direction || !amount || !duration) {
+      return c.json({ error: "Missing required fields" }, 400);
+    }
+
+    if (amount <= 0 || amount > 100000) {
+      return c.json({ error: "Invalid trade amount" }, 400);
+    }
+
+    // Check wallet balance
+    const wallet = await kv.get(`wallet:${user.id}`);
+    if (!wallet || wallet.realBalance < amount) {
+      return c.json({ error: "Insufficient balance" }, 400);
+    }
+
+    // Get asset config for payout
+    const assets = await kv.get("config:assets") || DEFAULT_ASSETS;
+    const asset = assets.find((a: any) => a.symbol === symbol);
+    if (!asset) {
+      return c.json({ error: "Asset not found" }, 400);
+    }
+
+    // Deduct from balance and add to locked
+    wallet.realBalance -= amount;
+    wallet.lockedBalance += amount;
+    wallet.updatedAt = new Date().toISOString();
+    await kv.set(`wallet:${user.id}`, wallet);
+
+    // Get current price
+    const entryPrice = await getMarketPrice(symbol);
+
+    const tradeId = `rt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const expiryTime = Date.now() + duration * 1000;
+
+    const trade = {
+      tradeId,
+      userId: user.id,
+      symbol,
+      direction,
+      amount,
+      duration,
+      entryPrice,
+      entryTime: Date.now(),
+      expiryTime,
+      payout: asset.payout,
+      status: 'active',
+      result: null,
+      exitPrice: null,
+      profit: null,
+      createdAt: new Date().toISOString(),
+      closedAt: null,
+      accountType: 'real'
+    };
+
+    await kv.set(`trade:real:${tradeId}`, trade);
+
+    return c.json({ success: true, trade });
+  } catch (error) {
+    console.error("Real trade error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Get active real trades
+app.get("/make-server-20da1dab/trades/real/active", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const allTrades = await kv.getByPrefix(`trade:real:`);
+    const userActiveTrades = allTrades.filter((t: any) => 
+      t.userId === user.id && t.status === 'active'
+    );
+
+    return c.json({ trades: userActiveTrades });
+  } catch (error) {
+    console.error("Get active trades error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Get closed real trades
+app.get("/make-server-20da1dab/trades/real/closed", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const allTrades = await kv.getByPrefix(`trade:real:`);
+    const userClosedTrades = allTrades.filter((t: any) => 
+      t.userId === user.id && t.status === 'closed'
+    );
+
+    // Sort by closed date, newest first
+    userClosedTrades.sort((a: any, b: any) => 
+      new Date(b.closedAt || 0).getTime() - new Date(a.closedAt || 0).getTime()
+    );
+
+    return c.json({ trades: userClosedTrades });
+  } catch (error) {
+    console.error("Get closed trades error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Close expired real trades (called by cron or manual check)
+app.post("/make-server-20da1dab/trades/real/check-expired", async (c) => {
+  try {
+    const allTrades = await kv.getByPrefix(`trade:real:`);
+    const now = Date.now();
+    let closedCount = 0;
+
+    for (const trade of allTrades) {
+      if (trade.status === 'active' && trade.expiryTime <= now) {
+        // Get exit price
+        const exitPrice = await getMarketPrice(trade.symbol);
+        
+        // Determine result
+        let result: 'win' | 'loss' | 'tie' = 'tie';
+        if (trade.direction === 'up' && exitPrice > trade.entryPrice) {
+          result = 'win';
+        } else if (trade.direction === 'down' && exitPrice < trade.entryPrice) {
+          result = 'win';
+        } else if (exitPrice === trade.entryPrice) {
+          result = 'tie';
+        } else {
+          result = 'loss';
+        }
+
+        // Calculate profit
+        let profit = 0;
+        if (result === 'win') {
+          profit = trade.amount * (trade.payout / 100);
+        } else if (result === 'tie') {
+          profit = 0; // Return investment
+        } else {
+          profit = -trade.amount;
+        }
+
+        // Update trade
+        trade.status = 'closed';
+        trade.result = result;
+        trade.exitPrice = exitPrice;
+        trade.profit = profit;
+        trade.closedAt = new Date().toISOString();
+        await kv.set(`trade:real:${trade.tradeId}`, trade);
+
+        // Update wallet
+        const wallet = await kv.get(`wallet:${trade.userId}`);
+        if (wallet) {
+          wallet.lockedBalance -= trade.amount;
+          
+          if (result === 'win') {
+            wallet.realBalance += trade.amount + profit;
+            wallet.totalProfits += profit;
+          } else if (result === 'tie') {
+            wallet.realBalance += trade.amount;
+          } else {
+            wallet.totalLosses += trade.amount;
+          }
+          
+          wallet.updatedAt = new Date().toISOString();
+          await kv.set(`wallet:${trade.userId}`, wallet);
+        }
+
+        closedCount++;
+      }
+    }
+
+    return c.json({ success: true, closedCount });
+  } catch (error) {
+    console.error("Check expired trades error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Admin: Approve deposit
+app.post("/make-server-20da1dab/admin/deposit/approve", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const adminProfile = await kv.get(`user:${user.id}`);
+    if (!adminProfile || adminProfile.role !== 'admin') {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const { depositId } = await c.req.json();
+    if (!depositId) return c.json({ error: "depositId required" }, 400);
+
+    const deposit = await kv.get(`deposit:${depositId}`);
+    if (!deposit) return c.json({ error: "Deposit not found" }, 404);
+
+    if (deposit.status !== 'pending') {
+      return c.json({ error: "Deposit already processed" }, 400);
+    }
+
+    // Update deposit status
+    deposit.status = 'approved';
+    deposit.approvedAt = new Date().toISOString();
+    deposit.approvedBy = user.id;
+    deposit.updatedAt = new Date().toISOString();
+    await kv.set(`deposit:${depositId}`, deposit);
+
+    // Update wallet
+    const wallet = await kv.get(`wallet:${deposit.userId}`);
+    if (wallet) {
+      wallet.realBalance += deposit.amount;
+      wallet.totalDeposits += deposit.amount;
+      wallet.updatedAt = new Date().toISOString();
+      await kv.set(`wallet:${deposit.userId}`, wallet);
+    }
+
+    return c.json({ success: true, deposit });
+  } catch (error) {
+    console.error("Approve deposit error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Admin: Reject deposit
+app.post("/make-server-20da1dab/admin/deposit/reject", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const adminProfile = await kv.get(`user:${user.id}`);
+    if (!adminProfile || adminProfile.role !== 'admin') {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const { depositId, reason } = await c.req.json();
+    if (!depositId) return c.json({ error: "depositId required" }, 400);
+
+    const deposit = await kv.get(`deposit:${depositId}`);
+    if (!deposit) return c.json({ error: "Deposit not found" }, 404);
+
+    deposit.status = 'rejected';
+    deposit.rejectedAt = new Date().toISOString();
+    deposit.rejectedBy = user.id;
+    deposit.rejectionReason = reason || 'No reason provided';
+    deposit.updatedAt = new Date().toISOString();
+    await kv.set(`deposit:${depositId}`, deposit);
+
+    return c.json({ success: true, deposit });
+  } catch (error) {
+    console.error("Reject deposit error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Admin: Approve withdrawal
+app.post("/make-server-20da1dab/admin/withdrawal/approve", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const adminProfile = await kv.get(`user:${user.id}`);
+    if (!adminProfile || adminProfile.role !== 'admin') {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const { withdrawalId } = await c.req.json();
+    if (!withdrawalId) return c.json({ error: "withdrawalId required" }, 400);
+
+    const withdrawal = await kv.get(`withdrawal:${withdrawalId}`);
+    if (!withdrawal) return c.json({ error: "Withdrawal not found" }, 404);
+
+    if (withdrawal.status !== 'pending') {
+      return c.json({ error: "Withdrawal already processed" }, 400);
+    }
+
+    // Update withdrawal status
+    withdrawal.status = 'approved';
+    withdrawal.approvedAt = new Date().toISOString();
+    withdrawal.approvedBy = user.id;
+    withdrawal.paidAt = new Date().toISOString();
+    withdrawal.updatedAt = new Date().toISOString();
+    await kv.set(`withdrawal:${withdrawalId}`, withdrawal);
+
+    // Update wallet - remove from locked balance
+    const wallet = await kv.get(`wallet:${withdrawal.userId}`);
+    if (wallet) {
+      wallet.lockedBalance -= withdrawal.amount;
+      wallet.totalWithdrawals += withdrawal.amount;
+      wallet.updatedAt = new Date().toISOString();
+      await kv.set(`wallet:${withdrawal.userId}`, wallet);
+    }
+
+    return c.json({ success: true, withdrawal });
+  } catch (error) {
+    console.error("Approve withdrawal error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Admin: Reject withdrawal
+app.post("/make-server-20da1dab/admin/withdrawal/reject", async (c) => {
+  try {
+    const accessToken = c.req.header('Authorization')?.split(' ')[1];
+    if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
+
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
+    if (!user) return c.json({ error: "Unauthorized" }, 401);
+
+    const adminProfile = await kv.get(`user:${user.id}`);
+    if (!adminProfile || adminProfile.role !== 'admin') {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    const { withdrawalId, reason } = await c.req.json();
+    if (!withdrawalId) return c.json({ error: "withdrawalId required" }, 400);
+
+    const withdrawal = await kv.get(`withdrawal:${withdrawalId}`);
+    if (!withdrawal) return c.json({ error: "Withdrawal not found" }, 404);
+
+    if (withdrawal.status !== 'pending') {
+      return c.json({ error: "Withdrawal already processed" }, 400);
+    }
+
+    // Update withdrawal status
+    withdrawal.status = 'rejected';
+    withdrawal.rejectedAt = new Date().toISOString();
+    withdrawal.rejectedBy = user.id;
+    withdrawal.rejectionReason = reason || 'No reason provided';
+    withdrawal.updatedAt = new Date().toISOString();
+    await kv.set(`withdrawal:${withdrawalId}`, withdrawal);
+
+    // Return funds to available balance
+    const wallet = await kv.get(`wallet:${withdrawal.userId}`);
+    if (wallet) {
+      wallet.lockedBalance -= withdrawal.amount;
+      wallet.realBalance += withdrawal.amount;
+      wallet.updatedAt = new Date().toISOString();
+      await kv.set(`wallet:${withdrawal.userId}`, wallet);
+    }
+
+    return c.json({ success: true, withdrawal });
+  } catch (error) {
+    console.error("Reject withdrawal error:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
 Deno.serve(app.fetch);

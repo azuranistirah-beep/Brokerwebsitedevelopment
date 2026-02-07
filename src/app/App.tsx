@@ -11,13 +11,14 @@ import { MemberDashboard } from "./components/MemberDashboard";
 import { NewAdminDashboard } from "./components/NewAdminDashboard";
 import { AdminSetupPage } from "./components/AdminSetupPage";
 import { AutoAdminSetup } from "./components/AutoAdminSetup";
+import { RealMoneyDashboard } from "./components/RealMoneyDashboard";
 import { Toaster } from "./components/ui/sonner";
 import { projectId, publicAnonKey } from "../../utils/supabase/info";
 import { supabase } from "./lib/supabaseClient";
 import { sessionMonitor } from "./lib/sessionMonitor";
 import { toast } from "sonner";
 
-type ViewType = "landing" | "markets" | "charts" | "screener" | "news" | "member" | "admin" | "admin-setup";
+type ViewType = "landing" | "markets" | "charts" | "screener" | "news" | "member" | "admin" | "admin-setup" | "real-trading";
 
 export default function App() {
   const [view, setView] = useState<ViewType>("landing");
@@ -28,6 +29,7 @@ export default function App() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAutoSetup, setShowAutoSetup] = useState(false);
+  const [accountType, setAccountType] = useState<'demo' | 'real'>('demo'); // Account type for members
 
   // Define handleLogout with useCallback to avoid dependency issues
   const handleLogout = useCallback(() => {
@@ -312,6 +314,15 @@ export default function App() {
 
         {view === "member" && accessToken && (
           <MemberDashboard
+            accessToken={accessToken}
+            onLogout={handleLogout}
+            accountType={accountType}
+            onSwitchToReal={() => setView("real-trading")}
+          />
+        )}
+
+        {view === "real-trading" && accessToken && (
+          <RealMoneyDashboard
             accessToken={accessToken}
             onLogout={handleLogout}
           />
