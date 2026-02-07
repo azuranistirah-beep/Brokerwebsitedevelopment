@@ -34,10 +34,9 @@ export function AutoAdminSetup({ onComplete }: AutoAdminSetupProps) {
         const checkData = await checkResponse.json();
         
         if (checkData.adminExists) {
-          setAdminExists(true);
-          setStatus("complete");
-          setMessage("Admin account already exists. You can login now.");
-          setTimeout(onComplete, 2000);
+          // Admin already exists, skip the UI and complete immediately
+          console.log("✅ Admin exists, skipping setup UI");
+          onComplete();
           return;
         }
       }

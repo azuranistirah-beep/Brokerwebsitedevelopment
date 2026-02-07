@@ -12,7 +12,7 @@ import { NewAdminDashboard } from "./components/NewAdminDashboard";
 import { AdminSetupPage } from "./components/AdminSetupPage";
 import { AutoAdminSetup } from "./components/AutoAdminSetup";
 import { Toaster } from "./components/ui/sonner";
-import { projectId } from "../../utils/supabase/info";
+import { projectId, publicAnonKey } from "../../utils/supabase/info";
 import { supabase } from "./lib/supabaseClient";
 import { sessionMonitor } from "./lib/sessionMonitor";
 import { toast } from "sonner";
@@ -49,13 +49,37 @@ export default function App() {
     // Check for existing session
     const checkSession = async () => {
       try {
-        // First check if we need auto-setup
-        const setupDone = localStorage.getItem("autoSetupDone");
-        if (!setupDone) {
-          setShowAutoSetup(true);
-          setLoading(false);
-          // Auto-setup will call completeAutoSetup when done
-          return;
+        // First check if admin exists via API (not localStorage)
+        try {
+          const checkAdminResponse = await fetch(
+            `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/check-admin`,
+            {
+              headers: {
+                "Authorization": `Bearer ${publicAnonKey}`
+              }
+            }
+          );
+
+          if (checkAdminResponse.ok) {
+            const adminCheck = await checkAdminResponse.json();
+            
+            // If no admin exists, show auto setup
+            if (!adminCheck.adminExists) {
+              console.log("ℹ️ No admin found, showing auto setup");
+              setShowAutoSetup(true);
+              setLoading(false);
+              return;
+            }
+            
+            // Admin exists, proceed with normal session check
+            console.log("✅ Admin exists, skipping auto setup");
+          } else {
+            console.log("⚠️ Failed to check admin existence, proceeding with normal flow");
+            // Don't show auto setup on error - let the AutoAdminSetup component handle it
+          }
+        } catch (adminCheckError) {
+          console.error("Error checking admin:", adminCheckError);
+          // Don't show auto setup on error - just proceed normally
         }
 
         // Check Supabase session (always get fresh token)
