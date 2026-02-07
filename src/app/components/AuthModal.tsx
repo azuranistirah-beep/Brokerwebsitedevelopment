@@ -84,7 +84,18 @@ export function AuthModal({ open, onClose, onSuccess, defaultTab = "login" }: Au
         return;
       }
 
-      // Now login
+      // Check if member needs approval
+      if (result.user?.status === 'pending') {
+        toast.success("Account created! Your account is awaiting admin approval. You will be notified once approved.");
+        setSignupEmail("");
+        setSignupPassword("");
+        setSignupName("");
+        setLoading(false);
+        onClose();
+        return;
+      }
+
+      // If admin or auto-approved, proceed with auto-login
       const { data, error } = await supabase.auth.signInWithPassword({
         email: signupEmail,
         password: signupPassword,

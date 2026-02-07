@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Search, Bell, Plus, User, ChevronDown } from "lucide-react";
+import { Search, Bell, Plus, User, ChevronDown, CheckCircle, WifiOff } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
+import { supabase } from "../../lib/supabaseClient";
+import { toast } from "sonner";
 
 interface AdminTopbarProps {
   adminName: string;

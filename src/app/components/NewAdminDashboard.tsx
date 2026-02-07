@@ -9,13 +9,14 @@ import { OverviewPage } from "./admin/pages/OverviewPage";
 import { MembersPage } from "./admin/pages/MembersPage";
 import { KYCPage } from "./admin/pages/KYCPage";
 import { WithdrawalsPage } from "./admin/pages/WithdrawalsPage";
+import { DepositsPage } from "./admin/pages/DepositsPage";
 import { PlaceholderPage } from "./admin/pages/PlaceholderPage";
 import { toast } from "sonner";
 
 interface NewAdminDashboardProps {
   onLogout: () => void;
   adminName?: string;
-  accessToken: string;
+  accessToken: string; // Not used anymore but kept for compatibility
 }
 
 export function NewAdminDashboard({ onLogout, adminName = "Admin", accessToken }: NewAdminDashboardProps) {
@@ -27,7 +28,7 @@ export function NewAdminDashboard({ onLogout, adminName = "Admin", accessToken }
 
   const handleQuickAction = (action: string) => {
     toast.info(`Quick action: ${action}`);
-    // TODO: Implement quick actions
+    // Navigate to relevant pages
     switch (action) {
       case "approve-member":
         setActiveMenu("members");
@@ -52,17 +53,11 @@ export function NewAdminDashboard({ onLogout, adminName = "Admin", accessToken }
       case "overview":
         return <OverviewPage onNavigate={handleMenuChange} />;
       case "members":
-        return <MembersPage />;
+        return <MembersPage accessToken={accessToken} />;
       case "kyc":
         return <KYCPage />;
       case "deposits":
-        return (
-          <PlaceholderPage 
-            title="Deposits Management"
-            description="View and manage all deposit transactions"
-            icon={ArrowDownToLine}
-          />
-        );
+        return <DepositsPage accessToken={accessToken} />;
       case "withdrawals":
         return <WithdrawalsPage />;
       case "trades":

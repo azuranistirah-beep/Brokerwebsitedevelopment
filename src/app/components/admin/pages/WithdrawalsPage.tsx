@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Download, CheckCircle, X, AlertCircle } from "lucide-react";
 import { Card } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -21,136 +21,155 @@ import {
   DialogTitle,
 } from "../../ui/dialog";
 import { Label } from "../../ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
+import { projectId } from "../../../../../utils/supabase/info";
+import { toast } from "sonner";
+import { makeAuthenticatedRequest } from "../../../lib/authHelpers";
 
-const withdrawals = [
-  {
-    id: "WD001",
-    member: "John Doe",
-    email: "john@example.com",
-    amount: 500.00,
-    fee: 5.00,
-    netAmount: 495.00,
-    method: "Bank Transfer",
-    bankName: "Chase Bank",
-    accountNumber: "****5678",
-    accountName: "John Doe",
-    kycStatus: "approved",
-    status: "pending",
-    requestDate: "2024-02-07 10:30",
-  },
-  {
-    id: "WD002",
-    member: "Jane Smith",
-    email: "jane@example.com",
-    amount: 1200.00,
-    fee: 12.00,
-    netAmount: 1188.00,
-    method: "Crypto (BTC)",
-    walletAddress: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-    kycStatus: "approved",
-    status: "pending",
-    requestDate: "2024-02-07 09:15",
-  },
-  {
-    id: "WD003",
-    member: "Mike Johnson",
-    email: "mike@example.com",
-    amount: 750.00,
-    fee: 7.50,
-    netAmount: 742.50,
-    method: "E-wallet",
-    walletId: "paypal@mike.com",
-    kycStatus: "pending",
-    status: "pending",
-    requestDate: "2024-02-07 08:45",
-  },
-  {
-    id: "WD004",
-    member: "Sarah Wilson",
-    email: "sarah@example.com",
-    amount: 2000.00,
-    fee: 20.00,
-    netAmount: 1980.00,
-    method: "Bank Transfer",
-    bankName: "Bank of America",
-    accountNumber: "****1234",
-    accountName: "Sarah Wilson",
-    kycStatus: "approved",
-    status: "approved",
-    requestDate: "2024-02-06 14:20",
-    approvedDate: "2024-02-06 15:30",
-  },
-  {
-    id: "WD005",
-    member: "Bob White",
-    email: "bob@example.com",
-    amount: 300.00,
-    fee: 3.00,
-    netAmount: 297.00,
-    method: "Bank Transfer",
-    bankName: "Wells Fargo",
-    accountNumber: "****9012",
-    accountName: "Bob White",
-    kycStatus: "rejected",
-    status: "rejected",
-    requestDate: "2024-02-05 11:30",
-    rejectedDate: "2024-02-05 16:00",
-    rejectionReason: "KYC verification failed",
-  },
-];
-
-const rejectionReasons = [
-  "Insufficient funds",
-  "KYC verification required",
-  "Suspicious activity detected",
-  "Bank details mismatch",
-  "Account under investigation",
-  "Bonus wagering requirements not met",
-  "Other (specify below)",
-];
+interface Withdrawal {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  amount: number;
+  method: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  walletAddress?: string;
+  walletId?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+}
 
 export function WithdrawalsPage() {
+  const [loading, setLoading] = useState(true);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedWithdrawal, setSelectedWithdrawal] = useState<typeof withdrawals[0] | null>(null);
+  const [selectedWithdrawal, setSelectedWithdrawal] = useState<Withdrawal | null>(null);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [customReason, setCustomReason] = useState("");
-  const [proofOfPayment, setProofOfPayment] = useState("");
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const handleReview = (withdrawal: typeof withdrawals[0]) => {
+  useEffect(() => {
+    fetchWithdrawals();
+  }, []);
+
+  const fetchWithdrawals = async () => {
+    try {
+      setLoading(true);
+      
+      const response = await makeAuthenticatedRequest(
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/withdrawals`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        setWithdrawals(data.withdrawals || []);
+      } else {
+        toast.error("Failed to fetch withdrawals");
+      }
+    } catch (error: any) {
+      console.error("Error fetching withdrawals:", error);
+      if (!error.message.includes("Authentication failed")) {
+        toast.error("Error loading withdrawals");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!selectedWithdrawal) return;
+
+    try {
+      setProcessingId(selectedWithdrawal.id);
+      
+      const response = await makeAuthenticatedRequest(
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/withdrawals/approve`,
+        {
+          method: "POST",
+          body: JSON.stringify({ withdrawalId: selectedWithdrawal.id })
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Withdrawal approved successfully!");
+        fetchWithdrawals();
+        setShowReviewDialog(false);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to approve withdrawal");
+      }
+    } catch (error: any) {
+      console.error("Error approving withdrawal:", error);
+      if (!error.message.includes("Authentication failed")) {
+        toast.error("Error approving withdrawal");
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedWithdrawal || !rejectionReason.trim()) {
+      toast.error("Please provide a rejection reason");
+      return;
+    }
+
+    try {
+      setProcessingId(selectedWithdrawal.id);
+      
+      const response = await makeAuthenticatedRequest(
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/withdrawals/reject`,
+        {
+          method: "POST",
+          body: JSON.stringify({ 
+            withdrawalId: selectedWithdrawal.id,
+            reason: rejectionReason 
+          })
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Withdrawal rejected");
+        fetchWithdrawals();
+        setShowReviewDialog(false);
+        setRejectionReason("");
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to reject withdrawal");
+      }
+    } catch (error: any) {
+      console.error("Error rejecting withdrawal:", error);
+      if (!error.message.includes("Authentication failed")) {
+        toast.error("Error rejecting withdrawal");
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleReview = (withdrawal: Withdrawal) => {
     setSelectedWithdrawal(withdrawal);
     setShowReviewDialog(true);
     setRejectionReason("");
-    setCustomReason("");
   };
 
-  const handleApprove = () => {
-    console.log("Approve withdrawal:", selectedWithdrawal?.id);
-    setShowReviewDialog(false);
-    // TODO: Implement approval logic
-  };
+  const filteredWithdrawals = withdrawals.filter(w =>
+    w.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    w.userEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    w.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const handleReject = () => {
-    console.log("Reject withdrawal:", selectedWithdrawal?.id, "Reason:", rejectionReason || customReason);
-    setShowReviewDialog(false);
-    // TODO: Implement rejection logic
-  };
+  const pendingWithdrawals = filteredWithdrawals.filter(w => w.status === "pending");
+  const approvedWithdrawals = filteredWithdrawals.filter(w => w.status === "approved");
+  const rejectedWithdrawals = filteredWithdrawals.filter(w => w.status === "rejected");
 
-  const handleMarkAsPaid = () => {
-    console.log("Mark as paid:", selectedWithdrawal?.id, "Proof:", proofOfPayment);
-    setShowReviewDialog(false);
-    // TODO: Implement mark as paid logic
-  };
-
-  const renderWithdrawalTable = (data: typeof withdrawals) => (
+  const renderWithdrawalTable = (data: Withdrawal[]) => (
     <Table>
       <TableHeader>
         <TableRow className="border-slate-800 hover:bg-slate-800/50">
@@ -158,63 +177,67 @@ export function WithdrawalsPage() {
           <TableHead className="text-gray-400">Member</TableHead>
           <TableHead className="text-gray-400">Amount</TableHead>
           <TableHead className="text-gray-400">Method</TableHead>
-          <TableHead className="text-gray-400">KYC Status</TableHead>
           <TableHead className="text-gray-400">Status</TableHead>
           <TableHead className="text-gray-400">Request Date</TableHead>
           <TableHead className="text-gray-400">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((withdrawal) => (
-          <TableRow key={withdrawal.id} className="border-slate-800 hover:bg-slate-800/50">
-            <TableCell className="text-white font-mono">{withdrawal.id}</TableCell>
-            <TableCell>
-              <div>
-                <p className="text-white font-medium">{withdrawal.member}</p>
-                <p className="text-gray-400 text-sm">{withdrawal.email}</p>
-              </div>
-            </TableCell>
-            <TableCell>
-              <div>
-                <p className="text-white font-mono">${withdrawal.amount.toFixed(2)}</p>
-                <p className="text-gray-400 text-xs">Fee: ${withdrawal.fee.toFixed(2)}</p>
-                <p className="text-green-400 text-xs font-semibold">Net: ${withdrawal.netAmount.toFixed(2)}</p>
-              </div>
-            </TableCell>
-            <TableCell className="text-gray-300">{withdrawal.method}</TableCell>
-            <TableCell>
-              <Badge className={
-                withdrawal.kycStatus === "approved" ? "bg-green-500/20 text-green-400" :
-                withdrawal.kycStatus === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                "bg-red-500/20 text-red-400"
-              }>
-                {withdrawal.kycStatus}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <Badge className={
-                withdrawal.status === "approved" ? "bg-green-500/20 text-green-400" :
-                withdrawal.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                "bg-red-500/20 text-red-400"
-              }>
-                {withdrawal.status}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-gray-400">{withdrawal.requestDate}</TableCell>
-            <TableCell>
-              <Button 
-                size="sm" 
-                onClick={() => handleReview(withdrawal)}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {withdrawal.status === "pending" ? "Process" : "View"}
-              </Button>
+        {data.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={7} className="text-center text-gray-400 py-8">
+              No withdrawals found
             </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          data.map((withdrawal) => (
+            <TableRow key={withdrawal.id} className="border-slate-800 hover:bg-slate-800/50">
+              <TableCell className="text-white font-mono">{withdrawal.id.substring(0, 8)}...</TableCell>
+              <TableCell>
+                <div>
+                  <p className="text-white font-medium">{withdrawal.userName}</p>
+                  <p className="text-gray-400 text-sm">{withdrawal.userEmail}</p>
+                </div>
+              </TableCell>
+              <TableCell>
+                <p className="text-white font-mono">${withdrawal.amount.toFixed(2)}</p>
+              </TableCell>
+              <TableCell className="text-gray-300">{withdrawal.method}</TableCell>
+              <TableCell>
+                <Badge className={
+                  withdrawal.status === "approved" ? "bg-green-500/20 text-green-400" :
+                  withdrawal.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
+                  "bg-red-500/20 text-red-400"
+                }>
+                  {withdrawal.status}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-gray-400">
+                {new Date(withdrawal.createdAt).toLocaleString()}
+              </TableCell>
+              <TableCell>
+                <Button 
+                  size="sm" 
+                  onClick={() => handleReview(withdrawal)}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {withdrawal.status === "pending" ? "Process" : "View"}
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white text-xl">Loading withdrawals...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -228,13 +251,13 @@ export function WithdrawalsPage() {
           <Card className="bg-slate-900 border-slate-800 px-4 py-2">
             <p className="text-gray-400 text-sm">Pending</p>
             <p className="text-white text-2xl font-bold">
-              {withdrawals.filter(w => w.status === "pending").length}
+              {pendingWithdrawals.length}
             </p>
           </Card>
           <Card className="bg-slate-900 border-slate-800 px-4 py-2">
             <p className="text-gray-400 text-sm">Total Amount</p>
             <p className="text-white text-2xl font-bold">
-              ${withdrawals.filter(w => w.status === "pending").reduce((sum, w) => sum + w.amount, 0).toFixed(0)}
+              ${pendingWithdrawals.reduce((sum, w) => sum + w.amount, 0).toFixed(0)}
             </p>
           </Card>
         </div>
@@ -253,9 +276,13 @@ export function WithdrawalsPage() {
               className="pl-10 bg-slate-800 border-slate-700 text-white"
             />
           </div>
-          <Button variant="outline" className="border-slate-700 text-gray-300">
+          <Button 
+            variant="outline" 
+            className="border-slate-700 text-gray-300"
+            onClick={fetchWithdrawals}
+          >
             <Download className="h-4 w-4 mr-2" />
-            Export CSV
+            Refresh
           </Button>
         </div>
       </Card>
@@ -264,31 +291,31 @@ export function WithdrawalsPage() {
       <Tabs defaultValue="pending" className="w-full">
         <TabsList className="bg-slate-900 border border-slate-800">
           <TabsTrigger value="pending" className="data-[state=active]:bg-purple-600">
-            Pending ({withdrawals.filter(w => w.status === "pending").length})
+            Pending ({pendingWithdrawals.length})
           </TabsTrigger>
           <TabsTrigger value="approved" className="data-[state=active]:bg-purple-600">
-            Approved ({withdrawals.filter(w => w.status === "approved").length})
+            Approved ({approvedWithdrawals.length})
           </TabsTrigger>
           <TabsTrigger value="rejected" className="data-[state=active]:bg-purple-600">
-            Rejected ({withdrawals.filter(w => w.status === "rejected").length})
+            Rejected ({rejectedWithdrawals.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="mt-6">
           <Card className="bg-slate-900 border-slate-800 p-6">
-            {renderWithdrawalTable(withdrawals.filter(w => w.status === "pending"))}
+            {renderWithdrawalTable(pendingWithdrawals)}
           </Card>
         </TabsContent>
 
         <TabsContent value="approved" className="mt-6">
           <Card className="bg-slate-900 border-slate-800 p-6">
-            {renderWithdrawalTable(withdrawals.filter(w => w.status === "approved"))}
+            {renderWithdrawalTable(approvedWithdrawals)}
           </Card>
         </TabsContent>
 
         <TabsContent value="rejected" className="mt-6">
           <Card className="bg-slate-900 border-slate-800 p-6">
-            {renderWithdrawalTable(withdrawals.filter(w => w.status === "rejected"))}
+            {renderWithdrawalTable(rejectedWithdrawals)}
           </Card>
         </TabsContent>
       </Tabs>
@@ -324,30 +351,12 @@ export function WithdrawalsPage() {
                   </div>
                   <div>
                     <Label className="text-gray-400">Member</Label>
-                    <p className="text-white mt-1">{selectedWithdrawal.member}</p>
-                    <p className="text-gray-400 text-sm">{selectedWithdrawal.email}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-400">KYC Status</Label>
-                    <Badge className={`mt-1 ${
-                      selectedWithdrawal.kycStatus === "approved" ? "bg-green-500/20 text-green-400" :
-                      selectedWithdrawal.kycStatus === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                      "bg-red-500/20 text-red-400"
-                    }`}>
-                      {selectedWithdrawal.kycStatus}
-                    </Badge>
+                    <p className="text-white mt-1">{selectedWithdrawal.userName}</p>
+                    <p className="text-gray-400 text-sm">{selectedWithdrawal.userEmail}</p>
                   </div>
                   <div>
                     <Label className="text-gray-400">Withdrawal Amount</Label>
                     <p className="text-white text-xl font-mono mt-1">${selectedWithdrawal.amount.toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <Label className="text-gray-400">Processing Fee</Label>
-                    <p className="text-orange-400 font-mono mt-1">-${selectedWithdrawal.fee.toFixed(2)}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <Label className="text-gray-400">Net Payout Amount</Label>
-                    <p className="text-green-400 text-2xl font-mono mt-1">${selectedWithdrawal.netAmount.toFixed(2)}</p>
                   </div>
                 </div>
               </Card>
@@ -394,58 +403,25 @@ export function WithdrawalsPage() {
                 </div>
               </Card>
 
-              {/* KYC Warning */}
-              {selectedWithdrawal.kycStatus !== "approved" && (
-                <Card className="bg-yellow-500/10 border-yellow-500/20 p-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-yellow-400 mt-0.5" />
-                    <div>
-                      <Label className="text-yellow-400">KYC Not Approved</Label>
-                      <p className="text-gray-300 text-sm mt-1">
-                        This member's KYC verification is {selectedWithdrawal.kycStatus}. 
-                        Consider reviewing their KYC before approving withdrawal.
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )}
-
               {/* Actions for Pending */}
               {selectedWithdrawal.status === "pending" && (
                 <div className="space-y-4">
                   <div>
                     <Label className="mb-2 block">Rejection Reason (if rejecting)</Label>
-                    <Select value={rejectionReason} onValueChange={setRejectionReason}>
-                      <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                        <SelectValue placeholder="Select a reason..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                        {rejectionReasons.map((reason) => (
-                          <SelectItem key={reason} value={reason}>
-                            {reason}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Textarea
+                      placeholder="Explain the rejection reason..."
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="bg-slate-800 border-slate-700 text-white"
+                      rows={3}
+                    />
                   </div>
-
-                  {rejectionReason === "Other (specify below)" && (
-                    <div>
-                      <Label className="mb-2 block">Custom Reason</Label>
-                      <Textarea
-                        placeholder="Explain the rejection reason..."
-                        value={customReason}
-                        onChange={(e) => setCustomReason(e.target.value)}
-                        className="bg-slate-800 border-slate-700 text-white"
-                        rows={3}
-                      />
-                    </div>
-                  )}
 
                   <div className="flex gap-3 pt-4">
                     <Button 
                       className="flex-1 bg-green-600 hover:bg-green-700"
                       onClick={handleApprove}
+                      disabled={processingId === selectedWithdrawal.id}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
                       Approve & Process
@@ -454,34 +430,12 @@ export function WithdrawalsPage() {
                       variant="destructive"
                       className="flex-1 bg-red-600 hover:bg-red-700"
                       onClick={handleReject}
-                      disabled={!rejectionReason}
+                      disabled={!rejectionReason.trim() || processingId === selectedWithdrawal.id}
                     >
                       <X className="h-4 w-4 mr-2" />
                       Reject Request
                     </Button>
                   </div>
-                </div>
-              )}
-
-              {/* Mark as Paid for Approved */}
-              {selectedWithdrawal.status === "approved" && (
-                <div className="space-y-4">
-                  <div>
-                    <Label className="mb-2 block">Proof of Payment (Transaction ID or Reference)</Label>
-                    <Input
-                      type="text"
-                      placeholder="Enter transaction reference..."
-                      value={proofOfPayment}
-                      onChange={(e) => setProofOfPayment(e.target.value)}
-                      className="bg-slate-800 border-slate-700 text-white"
-                    />
-                  </div>
-                  <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    onClick={handleMarkAsPaid}
-                  >
-                    Mark as Paid
-                  </Button>
                 </div>
               )}
 

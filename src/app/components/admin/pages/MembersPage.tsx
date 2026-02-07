@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Filter, UserCheck, UserX, MoreVertical, Eye, Ban, Key, DollarSign } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, UserCheck, UserX, MoreVertical, Eye, DollarSign, CheckCircle, XCircle } from "lucide-react";
 import { Card } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
@@ -27,184 +27,299 @@ import {
   DialogTitle,
 } from "../../ui/dialog";
 import { Label } from "../../ui/label";
+import { Textarea } from "../../ui/textarea";
+import { projectId } from "../../../../../utils/supabase/info";
+import { toast } from "sonner";
+import { makeAuthenticatedRequest, handleAuthError } from "../../../lib/authHelpers";
 
-const allMembers = [
-  { 
-    id: 1, 
-    name: "John Doe", 
-    email: "john@example.com", 
-    country: "USA", 
-    status: "active", 
-    kyc: "approved",
-    balance: 5420.50,
-    registered: "2024-01-15",
-    lastLogin: "2 hours ago"
-  },
-  { 
-    id: 2, 
-    name: "Jane Smith", 
-    email: "jane@example.com", 
-    country: "UK", 
-    status: "active", 
-    kyc: "pending",
-    balance: 12850.00,
-    registered: "2024-01-20",
-    lastLogin: "5 hours ago"
-  },
-  { 
-    id: 3, 
-    name: "Mike Johnson", 
-    email: "mike@example.com", 
-    country: "Canada", 
-    status: "pending", 
-    kyc: "not_submitted",
-    balance: 0,
-    registered: "2024-02-05",
-    lastLogin: "Never"
-  },
-  { 
-    id: 4, 
-    name: "Sarah Wilson", 
-    email: "sarah@example.com", 
-    country: "Australia", 
-    status: "blocked", 
-    kyc: "rejected",
-    balance: 2340.00,
-    registered: "2024-01-10",
-    lastLogin: "3 days ago"
-  },
-];
-
-interface MembersPageProps {
-  onNavigate?: (menu: string) => void;
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  balance: number;
+  createdAt: string;
+  role: string;
+  status: 'pending' | 'active' | 'rejected';
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  rejectionReason?: string;
 }
 
-export function MembersPage({ onNavigate }: MembersPageProps) {
+interface MembersPageProps {
+  accessToken: string; // Not used anymore but kept for compatibility
+}
+
+export function MembersPage({ accessToken }: MembersPageProps) {
+  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedMember, setSelectedMember] = useState<typeof allMembers[0] | null>(null);
+  const [selectedMember, setSelectedMember] = useState<User | null>(null);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [showBalanceDialog, setShowBalanceDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [balanceAmount, setBalanceAmount] = useState("");
-  const [balanceReason, setBalanceReason] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
 
-  const handleViewDetails = (member: typeof allMembers[0]) => {
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      
+      console.log("🔍 Fetching users from backend...");
+      
+      const response = await makeAuthenticatedRequest(
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/users`
+      );
+
+      console.log("📡 Response status:", response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("✅ Users fetched:", result.users?.length || 0);
+        
+        // Filter out admins, only show members
+        const members = result.users.filter((u: User) => u.role === 'member');
+        setUsers(members);
+        
+        if (members.length === 0) {
+          toast.info("No members found. Members will appear here after they sign up.");
+        }
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Fetch failed:", response.status, errorText);
+        toast.error(`Failed to fetch users: ${response.status}`);
+      }
+    } catch (error: any) {
+      console.error("❌ Error fetching users:", error);
+      console.error("Error details:", error.message);
+      
+      if (!error.message.includes("Authentication failed")) {
+        toast.error(`Error loading users: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApprove = async (userId: string) => {
+    try {
+      const response = await makeAuthenticatedRequest(
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/user/approve`,
+        {
+          method: "POST",
+          body: JSON.stringify({ userId }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Member approved successfully!");
+        fetchUsers(); // Refresh list
+        setShowDetailDialog(false);
+      } else {
+        const errorText = await response.text();
+        toast.error(`Failed to approve member: ${errorText}`);
+      }
+    } catch (error: any) {
+      console.error("Error approving member:", error);
+      if (!error.message.includes("Authentication failed")) {
+        toast.error("Error approving member");
+      }
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selectedMember || !rejectionReason) {
+      toast.error("Please provide a rejection reason");
+      return;
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest(
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/user/reject`,
+        {
+          method: "POST",
+          body: JSON.stringify({ 
+            userId: selectedMember.id,
+            reason: rejectionReason 
+          }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Member rejected");
+        fetchUsers(); // Refresh list
+        setShowRejectDialog(false);
+        setShowDetailDialog(false);
+        setRejectionReason("");
+      } else {
+        const errorText = await response.text();
+        toast.error(`Failed to reject member: ${errorText}`);
+      }
+    } catch (error: any) {
+      console.error("Error rejecting member:", error);
+      if (!error.message.includes("Authentication failed")) {
+        toast.error("Error rejecting member");
+      }
+    }
+  };
+
+  const handleAdjustBalance = async () => {
+    if (!selectedMember || !balanceAmount) {
+      toast.error("Please enter a valid balance");
+      return;
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest(
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/user/balance`,
+        {
+          method: "POST",
+          body: JSON.stringify({ 
+            userId: selectedMember.id,
+            balance: parseFloat(balanceAmount)
+          }),
+        }
+      );
+
+      if (response.ok) {
+        toast.success("Balance updated successfully!");
+        fetchUsers(); // Refresh list
+        setShowBalanceDialog(false);
+        setBalanceAmount("");
+      } else {
+        const errorText = await response.text();
+        toast.error(`Failed to update balance: ${errorText}`);
+      }
+    } catch (error: any) {
+      console.error("Error updating balance:", error);
+      if (!error.message.includes("Authentication failed")) {
+        toast.error("Error updating balance");
+      }
+    }
+  };
+
+  const handleViewDetails = (member: User) => {
     setSelectedMember(member);
     setShowDetailDialog(true);
   };
 
-  const handleAdjustBalance = (member: typeof allMembers[0]) => {
+  const openBalanceDialog = (member: User) => {
     setSelectedMember(member);
+    setBalanceAmount(member.balance.toString());
     setShowBalanceDialog(true);
   };
 
-  const handleApprove = (memberId: number) => {
-    console.log("Approve member:", memberId);
-    // TODO: Implement approval logic
+  const openRejectDialog = (member: User) => {
+    setSelectedMember(member);
+    setShowRejectDialog(true);
   };
 
-  const handleBlock = (memberId: number) => {
-    console.log("Block member:", memberId);
-    // TODO: Implement block logic
-  };
+  const filteredUsers = users.filter(user => 
+    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    user.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-  const renderMemberTable = (members: typeof allMembers) => (
+  const pendingUsers = filteredUsers.filter(u => u.status === 'pending');
+  const activeUsers = filteredUsers.filter(u => u.status === 'active');
+  const rejectedUsers = filteredUsers.filter(u => u.status === 'rejected');
+
+  const renderMemberTable = (members: User[]) => (
     <Table>
       <TableHeader>
         <TableRow className="border-slate-800 hover:bg-slate-800/50">
-          <TableHead className="text-gray-400">Member</TableHead>
-          <TableHead className="text-gray-400">Country</TableHead>
-          <TableHead className="text-gray-400">Status</TableHead>
-          <TableHead className="text-gray-400">KYC</TableHead>
+          <TableHead className="text-gray-400">Name</TableHead>
+          <TableHead className="text-gray-400">Email</TableHead>
           <TableHead className="text-gray-400">Balance</TableHead>
           <TableHead className="text-gray-400">Registered</TableHead>
-          <TableHead className="text-gray-400">Last Login</TableHead>
+          <TableHead className="text-gray-400">Status</TableHead>
           <TableHead className="text-gray-400">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {members.map((member) => (
-          <TableRow key={member.id} className="border-slate-800 hover:bg-slate-800/50">
-            <TableCell>
-              <div>
-                <p className="text-white font-medium">{member.name}</p>
-                <p className="text-gray-400 text-sm">{member.email}</p>
-              </div>
-            </TableCell>
-            <TableCell className="text-gray-300">{member.country}</TableCell>
-            <TableCell>
-              <Badge className={
-                member.status === "active" ? "bg-green-500/20 text-green-400" :
-                member.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                "bg-red-500/20 text-red-400"
-              }>
-                {member.status}
-              </Badge>
-            </TableCell>
-            <TableCell>
-              <Badge className={
-                member.kyc === "approved" ? "bg-green-500/20 text-green-400" :
-                member.kyc === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                member.kyc === "rejected" ? "bg-red-500/20 text-red-400" :
-                "bg-gray-500/20 text-gray-400"
-              }>
-                {member.kyc === "not_submitted" ? "Not Submitted" : member.kyc}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-white font-mono">${member.balance.toFixed(2)}</TableCell>
-            <TableCell className="text-gray-400">{member.registered}</TableCell>
-            <TableCell className="text-gray-400">{member.lastLogin}</TableCell>
-            <TableCell>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700 text-white">
-                  <DropdownMenuItem 
-                    className="hover:bg-slate-700 cursor-pointer"
-                    onClick={() => handleViewDetails(member)}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </DropdownMenuItem>
-                  {member.status === "pending" && (
-                    <DropdownMenuItem 
-                      className="hover:bg-slate-700 cursor-pointer text-green-400"
-                      onClick={() => handleApprove(member.id)}
-                    >
-                      <UserCheck className="h-4 w-4 mr-2" />
-                      Approve
-                    </DropdownMenuItem>
-                  )}
-                  {member.status !== "blocked" && (
-                    <DropdownMenuItem 
-                      className="hover:bg-slate-700 cursor-pointer text-red-400"
-                      onClick={() => handleBlock(member.id)}
-                    >
-                      <Ban className="h-4 w-4 mr-2" />
-                      Block User
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem className="hover:bg-slate-700 cursor-pointer">
-                    <Key className="h-4 w-4 mr-2" />
-                    Reset Password
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    className="hover:bg-slate-700 cursor-pointer text-purple-400"
-                    onClick={() => handleAdjustBalance(member)}
-                  >
-                    <DollarSign className="h-4 w-4 mr-2" />
-                    Adjust Balance
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+        {members.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={6} className="text-center text-gray-400 py-8">
+              No members found
             </TableCell>
           </TableRow>
-        ))}
+        ) : (
+          members.map((member) => (
+            <TableRow key={member.id} className="border-slate-800 hover:bg-slate-800/50">
+              <TableCell className="text-white font-medium">{member.name}</TableCell>
+              <TableCell className="text-gray-400">{member.email}</TableCell>
+              <TableCell className="text-white">${member.balance.toLocaleString()}</TableCell>
+              <TableCell className="text-gray-400">
+                {new Date(member.createdAt).toLocaleDateString()}
+              </TableCell>
+              <TableCell>
+                <Badge className={
+                  member.status === "active" ? "bg-green-500/20 text-green-400" :
+                  member.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
+                  "bg-red-500/20 text-red-400"
+                }>
+                  {member.status}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex gap-2">
+                  {member.status === 'pending' && (
+                    <>
+                      <Button 
+                        size="sm" 
+                        className="bg-green-600 hover:bg-green-700"
+                        onClick={() => handleApprove(member.id)}
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="destructive"
+                        onClick={() => openRejectDialog(member)}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />
+                        Reject
+                      </Button>
+                    </>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="bg-slate-900 border-slate-800 text-white">
+                      <DropdownMenuItem onClick={() => handleViewDetails(member)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openBalanceDialog(member)}>
+                        <DollarSign className="h-4 w-4 mr-2" />
+                        Adjust Balance
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))
+        )}
       </TableBody>
     </Table>
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white text-xl">Loading members...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -212,59 +327,62 @@ export function MembersPage({ onNavigate }: MembersPageProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-white">Members Management</h2>
-          <p className="text-gray-400 mt-1">Manage all platform members and their accounts</p>
+          <p className="text-gray-400 mt-1">Manage and monitor all registered members</p>
+        </div>
+        <div className="flex gap-3">
+          <Card className="bg-slate-900 border-slate-800 px-4 py-2">
+            <p className="text-gray-400 text-sm">Total Members</p>
+            <p className="text-white text-2xl font-bold">{users.length}</p>
+          </Card>
+          <Card className="bg-slate-900 border-slate-800 px-4 py-2">
+            <p className="text-gray-400 text-sm">Pending Approval</p>
+            <p className="text-yellow-400 text-2xl font-bold">{pendingUsers.length}</p>
+          </Card>
         </div>
       </div>
 
-      {/* Search & Filter */}
+      {/* Search */}
       <Card className="bg-slate-900 border-slate-800 p-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input
-              type="text"
-              placeholder="Search by name, email, or ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-slate-800 border-slate-700 text-white"
-            />
-          </div>
-          <Button variant="outline" className="border-slate-700 text-gray-300">
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search members by name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 bg-slate-800 border-slate-700 text-white"
+          />
         </div>
       </Card>
 
       {/* Tabs */}
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs defaultValue="pending" className="w-full">
         <TabsList className="bg-slate-900 border border-slate-800">
-          <TabsTrigger value="all" className="data-[state=active]:bg-purple-600">
-            All Members ({allMembers.length})
-          </TabsTrigger>
           <TabsTrigger value="pending" className="data-[state=active]:bg-purple-600">
-            Pending Approval ({allMembers.filter(m => m.status === "pending").length})
+            Pending Approval ({pendingUsers.length})
           </TabsTrigger>
-          <TabsTrigger value="blocked" className="data-[state=active]:bg-purple-600">
-            Blocked ({allMembers.filter(m => m.status === "blocked").length})
+          <TabsTrigger value="active" className="data-[state=active]:bg-purple-600">
+            Active Members ({activeUsers.length})
+          </TabsTrigger>
+          <TabsTrigger value="rejected" className="data-[state=active]:bg-purple-600">
+            Rejected ({rejectedUsers.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="all" className="mt-6">
-          <Card className="bg-slate-900 border-slate-800 p-6">
-            {renderMemberTable(allMembers)}
-          </Card>
-        </TabsContent>
-
         <TabsContent value="pending" className="mt-6">
           <Card className="bg-slate-900 border-slate-800 p-6">
-            {renderMemberTable(allMembers.filter(m => m.status === "pending"))}
+            {renderMemberTable(pendingUsers)}
           </Card>
         </TabsContent>
 
-        <TabsContent value="blocked" className="mt-6">
+        <TabsContent value="active" className="mt-6">
           <Card className="bg-slate-900 border-slate-800 p-6">
-            {renderMemberTable(allMembers.filter(m => m.status === "blocked"))}
+            {renderMemberTable(activeUsers)}
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="rejected" className="mt-6">
+          <Card className="bg-slate-900 border-slate-800 p-6">
+            {renderMemberTable(rejectedUsers)}
           </Card>
         </TabsContent>
       </Tabs>
@@ -275,9 +393,10 @@ export function MembersPage({ onNavigate }: MembersPageProps) {
           <DialogHeader>
             <DialogTitle>Member Details</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Complete information about {selectedMember?.name}
+              Full information about the member
             </DialogDescription>
           </DialogHeader>
+          
           {selectedMember && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -290,48 +409,60 @@ export function MembersPage({ onNavigate }: MembersPageProps) {
                   <p className="text-white mt-1">{selectedMember.email}</p>
                 </div>
                 <div>
-                  <Label className="text-gray-400">Country</Label>
-                  <p className="text-white mt-1">{selectedMember.country}</p>
+                  <Label className="text-gray-400">Balance</Label>
+                  <p className="text-white mt-1">${selectedMember.balance.toLocaleString()}</p>
                 </div>
                 <div>
                   <Label className="text-gray-400">Status</Label>
-                  <Badge className={`mt-1 ${
-                    selectedMember.status === "active" ? "bg-green-500/20 text-green-400" :
-                    selectedMember.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                    "bg-red-500/20 text-red-400"
-                  }`}>
+                  <Badge className={
+                    selectedMember.status === "active" ? "bg-green-500/20 text-green-400 mt-1" :
+                    selectedMember.status === "pending" ? "bg-yellow-500/20 text-yellow-400 mt-1" :
+                    "bg-red-500/20 text-red-400 mt-1"
+                  }>
                     {selectedMember.status}
                   </Badge>
                 </div>
                 <div>
-                  <Label className="text-gray-400">KYC Status</Label>
-                  <Badge className={`mt-1 ${
-                    selectedMember.kyc === "approved" ? "bg-green-500/20 text-green-400" :
-                    selectedMember.kyc === "pending" ? "bg-yellow-500/20 text-yellow-400" :
-                    "bg-red-500/20 text-red-400"
-                  }`}>
-                    {selectedMember.kyc}
-                  </Badge>
-                </div>
-                <div>
-                  <Label className="text-gray-400">Balance</Label>
-                  <p className="text-white mt-1 font-mono">${selectedMember.balance.toFixed(2)}</p>
-                </div>
-                <div>
                   <Label className="text-gray-400">Registered</Label>
-                  <p className="text-white mt-1">{selectedMember.registered}</p>
+                  <p className="text-white mt-1">
+                    {new Date(selectedMember.createdAt).toLocaleString()}
+                  </p>
                 </div>
                 <div>
-                  <Label className="text-gray-400">Last Login</Label>
-                  <p className="text-white mt-1">{selectedMember.lastLogin}</p>
+                  <Label className="text-gray-400">User ID</Label>
+                  <p className="text-white mt-1 text-xs break-all">{selectedMember.id}</p>
                 </div>
               </div>
-              
-              <div className="flex gap-2 pt-4">
-                <Button className="bg-purple-600 hover:bg-purple-700">Edit Profile</Button>
-                <Button variant="outline" className="border-slate-700 text-gray-300">View Trades</Button>
-                <Button variant="outline" className="border-slate-700 text-gray-300">View Transactions</Button>
-              </div>
+
+              {selectedMember.status === 'rejected' && selectedMember.rejectionReason && (
+                <Card className="bg-red-500/10 border-red-500/20 p-4">
+                  <Label className="text-red-400">Rejection Reason</Label>
+                  <p className="text-white mt-1">{selectedMember.rejectionReason}</p>
+                </Card>
+              )}
+
+              {selectedMember.status === 'pending' && (
+                <div className="flex gap-3 pt-4">
+                  <Button 
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    onClick={() => handleApprove(selectedMember.id)}
+                  >
+                    <UserCheck className="h-4 w-4 mr-2" />
+                    Approve Member
+                  </Button>
+                  <Button 
+                    variant="destructive"
+                    className="flex-1 bg-red-600 hover:bg-red-700"
+                    onClick={() => {
+                      setShowDetailDialog(false);
+                      openRejectDialog(selectedMember);
+                    }}
+                  >
+                    <UserX className="h-4 w-4 mr-2" />
+                    Reject Member
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
@@ -343,46 +474,98 @@ export function MembersPage({ onNavigate }: MembersPageProps) {
           <DialogHeader>
             <DialogTitle>Adjust Balance</DialogTitle>
             <DialogDescription className="text-gray-400">
-              Credit or debit balance for {selectedMember?.name}
+              Update member's account balance
             </DialogDescription>
           </DialogHeader>
+          
           <div className="space-y-4">
+            {selectedMember && (
+              <div>
+                <Label className="text-gray-400">Current Balance</Label>
+                <p className="text-white text-2xl font-bold">
+                  ${selectedMember.balance.toLocaleString()}
+                </p>
+              </div>
+            )}
+            
             <div>
-              <Label>Current Balance</Label>
-              <p className="text-white text-xl font-mono mt-1">
-                ${selectedMember?.balance.toFixed(2)}
-              </p>
-            </div>
-            <div>
-              <Label>Amount (use - for debit, + for credit)</Label>
+              <Label>New Balance</Label>
               <Input
                 type="number"
-                placeholder="+100 or -50"
+                placeholder="Enter new balance"
                 value={balanceAmount}
                 onChange={(e) => setBalanceAmount(e.target.value)}
-                className="bg-slate-800 border-slate-700 text-white"
+                className="bg-slate-800 border-slate-700 text-white mt-2"
               />
             </div>
-            <div>
-              <Label>Reason</Label>
-              <Input
-                type="text"
-                placeholder="e.g., Bonus, Refund, Adjustment"
-                value={balanceReason}
-                onChange={(e) => setBalanceReason(e.target.value)}
-                className="bg-slate-800 border-slate-700 text-white"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button className="flex-1 bg-purple-600 hover:bg-purple-700">
-                Apply Adjustment
-              </Button>
+
+            <div className="flex gap-3 pt-4">
               <Button 
                 variant="outline" 
-                className="border-slate-700"
+                className="flex-1 border-slate-700 text-white hover:bg-slate-800"
                 onClick={() => setShowBalanceDialog(false)}
               >
                 Cancel
+              </Button>
+              <Button 
+                className="flex-1 bg-purple-600 hover:bg-purple-700"
+                onClick={handleAdjustBalance}
+              >
+                Update Balance
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Member Dialog */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent className="bg-slate-900 border-slate-800 text-white">
+          <DialogHeader>
+            <DialogTitle>Reject Member</DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Provide a reason for rejecting this member
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {selectedMember && (
+              <Card className="bg-slate-800 border-slate-700 p-4">
+                <p className="text-gray-400 text-sm">Member</p>
+                <p className="text-white font-bold">{selectedMember.name}</p>
+                <p className="text-gray-400 text-sm">{selectedMember.email}</p>
+              </Card>
+            )}
+            
+            <div>
+              <Label>Rejection Reason</Label>
+              <Textarea
+                placeholder="Explain why this member is being rejected..."
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className="bg-slate-800 border-slate-700 text-white mt-2"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="outline" 
+                className="flex-1 border-slate-700 text-white hover:bg-slate-800"
+                onClick={() => {
+                  setShowRejectDialog(false);
+                  setRejectionReason("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                className="flex-1 bg-red-600 hover:bg-red-700"
+                onClick={handleReject}
+                disabled={!rejectionReason}
+              >
+                Reject Member
               </Button>
             </div>
           </div>

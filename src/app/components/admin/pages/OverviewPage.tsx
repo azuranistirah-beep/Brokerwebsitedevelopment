@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Users, FileCheck, ArrowDownToLine, ArrowUpFromLine, TrendingUp, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { Card } from "../../ui/card";
 import { Button } from "../../ui/button";
@@ -10,77 +11,179 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
+import { projectId } from "../../../../../utils/supabase/info";
+import { makeAuthenticatedRequest } from "../../../lib/authHelpers";
+import { toast } from "sonner";
 
-const stats = [
-  { 
-    label: "Total Members", 
-    value: "2,847", 
-    change: "+12.5%", 
-    icon: Users, 
-    color: "blue",
-    trend: "up" 
-  },
-  { 
-    label: "Pending KYC", 
-    value: "23", 
-    change: "5 new today", 
-    icon: FileCheck, 
-    color: "yellow",
-    urgent: true 
-  },
-  { 
-    label: "Today Deposits", 
-    value: "$45,820", 
-    change: "+8.2%", 
-    icon: ArrowDownToLine, 
-    color: "green",
-    trend: "up" 
-  },
-  { 
-    label: "Today Withdrawals", 
-    value: "$28,450", 
-    change: "12 pending", 
-    icon: ArrowUpFromLine, 
-    color: "orange",
-    urgent: true 
-  },
-  { 
-    label: "Open Trades", 
-    value: "156", 
-    change: "+5 last hour", 
-    icon: TrendingUp, 
-    color: "purple",
-    trend: "neutral" 
-  },
-];
-
-const pendingQueue = [
-  { id: 1, type: "member", name: "John Doe", email: "john@example.com", time: "2 min ago", priority: "normal" },
-  { id: 2, type: "kyc", name: "Jane Smith", email: "jane@example.com", time: "5 min ago", priority: "high" },
-  { id: 3, type: "withdrawal", name: "Mike Johnson", email: "mike@example.com", amount: "$500", time: "10 min ago", priority: "urgent" },
-  { id: 4, type: "member", name: "Sarah Wilson", email: "sarah@example.com", time: "15 min ago", priority: "normal" },
-  { id: 5, type: "kyc", name: "Tom Brown", email: "tom@example.com", time: "20 min ago", priority: "high" },
-];
-
-const recentActivity = [
-  { id: 1, type: "deposit", user: "Alice Green", action: "Deposited $1,000", time: "5 min ago", status: "completed" },
-  { id: 2, type: "trade", user: "Bob White", action: "Opened BTC/USD trade", time: "8 min ago", status: "active" },
-  { id: 3, type: "kyc", user: "Charlie Black", action: "Submitted KYC documents", time: "12 min ago", status: "pending" },
-  { id: 4, type: "withdrawal", user: "Diana Blue", action: "Requested withdrawal $750", time: "15 min ago", status: "pending" },
-  { id: 5, type: "login", user: "Eve Red", action: "Logged in from New York", time: "18 min ago", status: "info" },
-  { id: 6, type: "trade", user: "Frank Gray", action: "Closed EUR/USD trade +$45", time: "22 min ago", status: "completed" },
-];
+interface Stats {
+  totalUsers: number;
+  pendingMembers: number;
+  pendingKYC: number;
+  pendingDeposits: number;
+  pendingWithdrawals: number;
+  totalDepositsAmount: number;
+  totalWithdrawalsAmount: number;
+}
 
 interface OverviewPageProps {
   onNavigate: (menu: string, submenu?: string) => void;
 }
 
 export function OverviewPage({ onNavigate }: OverviewPageProps) {
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<Stats>({
+    totalUsers: 0,
+    pendingMembers: 0,
+    pendingKYC: 0,
+    pendingDeposits: 0,
+    pendingWithdrawals: 0,
+    totalDepositsAmount: 0,
+    totalWithdrawalsAmount: 0,
+  });
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  const fetchStats = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch all data in parallel
+      const [usersRes, depositsRes, withdrawalsRes, kycRes] = await Promise.all([
+        makeAuthenticatedRequest(
+          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/users`
+        ),
+        makeAuthenticatedRequest(
+          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/deposits`
+        ),
+        makeAuthenticatedRequest(
+          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/withdrawals`
+        ),
+        makeAuthenticatedRequest(
+          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/kyc`
+        )
+      ]);
+
+      let newStats: Stats = {
+        totalUsers: 0,
+        pendingMembers: 0,
+        pendingKYC: 0,
+        pendingDeposits: 0,
+        pendingWithdrawals: 0,
+        totalDepositsAmount: 0,
+        totalWithdrawalsAmount: 0,
+      };
+
+      if (usersRes.ok) {
+        const data = await usersRes.json();
+        const members = data.users.filter((u: any) => u.role === 'member');
+        newStats.totalUsers = members.length;
+        newStats.pendingMembers = members.filter((u: any) => u.status === 'pending').length;
+      }
+
+      if (depositsRes.ok) {
+        const data = await depositsRes.json();
+        const deposits = data.deposits || [];
+        newStats.pendingDeposits = deposits.filter((d: any) => d.status === 'pending').length;
+        newStats.totalDepositsAmount = deposits
+          .filter((d: any) => d.status === 'pending')
+          .reduce((sum: number, d: any) => sum + d.amount, 0);
+      }
+
+      if (withdrawalsRes.ok) {
+        const data = await withdrawalsRes.json();
+        const withdrawals = data.withdrawals || [];
+        newStats.pendingWithdrawals = withdrawals.filter((w: any) => w.status === 'pending').length;
+        newStats.totalWithdrawalsAmount = withdrawals
+          .filter((w: any) => w.status === 'pending')
+          .reduce((sum: number, w: any) => sum + w.amount, 0);
+      }
+
+      if (kycRes.ok) {
+        const data = await kycRes.json();
+        const kyc = data.kyc || [];
+        newStats.pendingKYC = kyc.filter((k: any) => k.status === 'pending').length;
+      }
+
+      setStats(newStats);
+    } catch (error: any) {
+      console.error("Error fetching stats:", error);
+      if (!error.message.includes("Authentication failed")) {
+        toast.error("Error loading dashboard stats");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const statsCards = [
+    { 
+      label: "Total Members", 
+      value: stats.totalUsers.toString(), 
+      change: `${stats.pendingMembers} pending approval`, 
+      icon: Users, 
+      color: "blue",
+      urgent: stats.pendingMembers > 0,
+      onClick: () => onNavigate("members")
+    },
+    { 
+      label: "Pending KYC", 
+      value: stats.pendingKYC.toString(), 
+      change: stats.pendingKYC > 0 ? "Requires review" : "All reviewed", 
+      icon: FileCheck, 
+      color: "yellow",
+      urgent: stats.pendingKYC > 0,
+      onClick: () => onNavigate("kyc")
+    },
+    { 
+      label: "Pending Deposits", 
+      value: stats.pendingDeposits.toString(), 
+      change: `$${stats.totalDepositsAmount.toLocaleString()}`, 
+      icon: ArrowDownToLine, 
+      color: "green",
+      urgent: stats.pendingDeposits > 0,
+      onClick: () => onNavigate("deposits")
+    },
+    { 
+      label: "Pending Withdrawals", 
+      value: stats.pendingWithdrawals.toString(), 
+      change: `$${stats.totalWithdrawalsAmount.toLocaleString()}`, 
+      icon: ArrowUpFromLine, 
+      color: "orange",
+      urgent: stats.pendingWithdrawals > 0,
+      onClick: () => onNavigate("withdrawals")
+    },
+  ];
+
+  // Mock pending queue data (will be replaced with real data later)
+  const pendingQueue = [
+    { id: 1, type: "member", name: "John Doe", email: "john@example.com", time: "2 min ago", priority: "normal" },
+    { id: 2, type: "kyc", name: "Jane Smith", email: "jane@example.com", time: "5 min ago", priority: "high" },
+    { id: 3, type: "withdrawal", name: "Mike Johnson", email: "mike@example.com", amount: "$500", time: "10 min ago", priority: "urgent" },
+  ];
+
+  // Mock recent activity data (will be replaced with real data later)
+  const recentActivity = [
+    { id: 1, type: "deposit", user: "Alice Green", action: "Deposited $1,000", time: "5 min ago", status: "completed" },
+    { id: 2, type: "trade", user: "Bob White", action: "Opened BTC/USD trade", time: "8 min ago", status: "active" },
+    { id: 3, type: "kyc", user: "Charlie Black", action: "Submitted KYC documents", time: "12 min ago", status: "pending" },
+    { id: 4, type: "withdrawal", user: "Diana Blue", action: "Requested withdrawal $750", time: "15 min ago", status: "pending" },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white text-xl">Loading dashboard...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        {stats.map((stat, index) => {
+        {statsCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <Card key={index} className="bg-slate-900 border-slate-800 p-6">
@@ -99,6 +202,13 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
                   <Icon className={`h-6 w-6 text-${stat.color}-400`} />
                 </div>
               </div>
+              <Button
+                size="sm"
+                className="mt-4 bg-purple-600 hover:bg-purple-700 text-white"
+                onClick={stat.onClick}
+              >
+                View Details
+              </Button>
             </Card>
           );
         })}
