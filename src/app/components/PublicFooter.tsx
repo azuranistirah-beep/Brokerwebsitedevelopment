@@ -1,19 +1,32 @@
 import { BarChart3 } from "lucide-react";
 import { useState } from "react";
 import { LegalModal } from "./LegalModal";
+import { AdminLoginModal } from "./AdminLoginModal";
 
 interface PublicFooterProps {
   onNavigate: (view: string) => void;
   onGetStarted: () => void;
+  onAdminLogin?: (token: string, userId: string) => void;
 }
 
-export function PublicFooter({ onNavigate, onGetStarted }: PublicFooterProps) {
+export function PublicFooter({ onNavigate, onGetStarted, onAdminLogin }: PublicFooterProps) {
   const [legalModalOpen, setLegalModalOpen] = useState(false);
   const [legalType, setLegalType] = useState<"terms" | "privacy" | "risk">("terms");
+  const [adminLoginOpen, setAdminLoginOpen] = useState(false);
 
   const openLegal = (type: "terms" | "privacy" | "risk") => {
     setLegalType(type);
     setLegalModalOpen(true);
+  };
+
+  const handleAdminDotClick = () => {
+    onNavigate("admin-setup");
+  };
+
+  const handleAdminLoginSuccess = (token: string, userId: string) => {
+    if (onAdminLogin) {
+      onAdminLogin(token, userId);
+    }
   };
 
   return (
@@ -74,7 +87,16 @@ export function PublicFooter({ onNavigate, onGetStarted }: PublicFooterProps) {
         </div>
         
         <div className="border-t border-slate-200 pt-8 flex flex-col md:flex-row items-center justify-between text-sm">
-          <p>&copy; 2026 Investoft. All rights reserved.</p>
+          <p>
+            &copy; 2026 Investoft
+            <span 
+              onClick={handleAdminDotClick}
+              className="cursor-pointer hover:text-red-600 transition-colors select-none"
+              title="Admin Access"
+            >
+              .
+            </span> All rights reserved.
+          </p>
           <div className="flex gap-6 mt-4 md:mt-0">
              <button onClick={() => openLegal("terms")} className="hover:text-blue-600">Terms</button>
              <button onClick={() => openLegal("privacy")} className="hover:text-blue-600">Privacy</button>
@@ -87,6 +109,12 @@ export function PublicFooter({ onNavigate, onGetStarted }: PublicFooterProps) {
         isOpen={legalModalOpen}
         onClose={() => setLegalModalOpen(false)}
         type={legalType}
+      />
+
+      <AdminLoginModal
+        isOpen={adminLoginOpen}
+        onClose={() => setAdminLoginOpen(false)}
+        onSuccess={handleAdminLoginSuccess}
       />
     </footer>
   );

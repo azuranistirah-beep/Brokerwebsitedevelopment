@@ -6,10 +6,16 @@ import * as kv from "./kv_store.tsx";
 
 const app = new Hono();
 
-// Supabase client with service role key
+// Supabase client with service role key (for admin operations)
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+);
+
+// Supabase client with anon key (for verifying user JWTs from frontend)
+const supabaseAnon = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_ANON_KEY')!,
 );
 
 // Enable logger
@@ -130,6 +136,26 @@ app.post("/make-server-20da1dab/signup", async (c) => {
       role: userRole
     });
 
+    // For admin accounts, also create a session and return token
+    if (userRole === 'admin') {
+      // Sign in the user to get a valid session token
+      const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email,
+      });
+
+      if (sessionError) {
+        console.log(`Error generating session: ${sessionError.message}`);
+      }
+
+      // Return success with user data and a flag for auto-login
+      return c.json({ 
+        success: true, 
+        user: { id: userId, email, name, role: userRole },
+        autoLogin: true // Signal to frontend to auto-login
+      });
+    }
+
     return c.json({ 
       success: true, 
       user: { id: userId, email, name, role: userRole }
@@ -148,7 +174,7 @@ app.get("/make-server-20da1dab/profile", async (c) => {
       return c.json({ error: "Unauthorized - No token provided" }, 401);
     }
 
-    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+    const { data: { user }, error } = await supabaseAnon.auth.getUser(accessToken);
     if (error || !user) {
       return c.json({ error: "Unauthorized - Invalid token" }, 401);
     }
@@ -212,7 +238,7 @@ app.post("/make-server-20da1dab/admin/assets", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const adminProfile = await kv.get(`user:${user.id}`);
@@ -247,7 +273,7 @@ app.post("/make-server-20da1dab/trade", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const { asset, type, amount, duration } = await c.req.json();
@@ -308,7 +334,7 @@ app.post("/make-server-20da1dab/trade/close", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const { tradeId } = await c.req.json();
@@ -382,7 +408,7 @@ app.get("/make-server-20da1dab/trades", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const allTrades = await kv.getByPrefix(`trade:${user.id}:`);
@@ -400,7 +426,7 @@ app.post("/make-server-20da1dab/payment/deposit", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const { amount, method } = await c.req.json();
@@ -433,7 +459,7 @@ app.post("/make-server-20da1dab/payment/withdraw", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const { amount, method } = await c.req.json();
@@ -470,7 +496,7 @@ app.get("/make-server-20da1dab/transactions", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const txs = await kv.getByPrefix(`tx:${user.id}:`);
@@ -488,7 +514,7 @@ app.get("/make-server-20da1dab/admin/users", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const adminProfile = await kv.get(`user:${user.id}`);
@@ -506,7 +532,7 @@ app.get("/make-server-20da1dab/admin/trades", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const adminProfile = await kv.get(`user:${user.id}`);
@@ -525,7 +551,7 @@ app.post("/make-server-20da1dab/admin/user/balance", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const adminProfile = await kv.get(`user:${user.id}`);
@@ -551,7 +577,7 @@ app.get("/make-server-20da1dab/admin/stats", async (c) => {
     const accessToken = c.req.header('Authorization')?.split(' ')[1];
     if (!accessToken) return c.json({ error: "Unauthorized" }, 401);
 
-    const { data: { user } } = await supabase.auth.getUser(accessToken);
+    const { data: { user } } = await supabaseAnon.auth.getUser(accessToken);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
 
     const adminProfile = await kv.get(`user:${user.id}`);

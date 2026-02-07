@@ -10,7 +10,7 @@ import {
   LayoutDashboard, PieChart, ArrowUp, ArrowDown, 
   Menu, CreditCard, HelpCircle, Settings, Plus, Minus
 } from "lucide-react";
-import { projectId } from "/utils/supabase/info";
+import { projectId } from "../../../utils/supabase/info";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { ScrollArea } from "./ui/scroll-area";
@@ -690,6 +690,7 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
                        <DialogContent className="bg-slate-900 border-slate-800 text-white">
                          <DialogHeader>
                            <DialogTitle>Deposit Funds</DialogTitle>
+                           <p className="text-sm text-slate-400">Add funds to your trading account</p>
                          </DialogHeader>
                          <div className="space-y-4 py-4">
                            <div className="space-y-2">
@@ -716,6 +717,7 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
                        <DialogContent className="bg-slate-900 border-slate-800 text-white">
                          <DialogHeader>
                            <DialogTitle>Withdraw Funds</DialogTitle>
+                           <p className="text-sm text-slate-400">Request withdrawal from your account</p>
                          </DialogHeader>
                          <div className="space-y-4 py-4">
                            <div className="space-y-2">

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { TradingChart } from "./TradingChart";
-import { Button } from "./ui/button";
 import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
 import { Search } from "lucide-react";
 import { Input } from "./ui/input";
-import { projectId } from "/utils/supabase/info";
-import { Tabs, TabsList, TabsTrigger } from "./ui/tab";
+import { TradingChart } from "./TradingChart";
+import { projectId } from "../../../utils/supabase/info";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 
 interface MarketItem {
   symbol: string;

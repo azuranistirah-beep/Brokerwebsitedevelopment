@@ -1,25 +1,27 @@
 import { useState, useEffect } from "react";
 import { LandingPage } from "./components/LandingPage";
-import { PublicHeader } from "./components/PublicHeader";
-import { PublicFooter } from "./components/PublicFooter";
 import { MarketsPage } from "./components/MarketsPage";
 import { ChartPage } from "./components/ChartPage";
 import { ScreenerPage } from "./components/ScreenerPage";
 import { NewsPage } from "./components/NewsPage";
+import { PublicHeader } from "./components/PublicHeader";
+import { PublicFooter } from "./components/PublicFooter";
 import { AuthModal } from "./components/AuthModal";
 import { MemberDashboard } from "./components/MemberDashboard";
-import { AdminDashboard } from "./components/AdminDashboard";
+import { NewAdminDashboard } from "./components/NewAdminDashboard";
+import { AdminSetupPage } from "./components/AdminSetupPage";
 import { Toaster } from "./components/ui/sonner";
-import { projectId } from "/utils/supabase/info";
+import { projectId } from "../../utils/supabase/info";
 import { supabase } from "./lib/supabaseClient";
 
-type ViewType = "landing" | "markets" | "charts" | "screener" | "news" | "member" | "admin";
+type ViewType = "landing" | "markets" | "charts" | "screener" | "news" | "member" | "admin" | "admin-setup";
 
 export default function App() {
   const [view, setView] = useState<ViewType>("landing");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<"login" | "signup">("login");
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +32,22 @@ export default function App() {
 
   const checkSession = async () => {
     try {
+      // Check localStorage first
+      const storedToken = localStorage.getItem("accessToken");
+      const storedUserId = localStorage.getItem("userId");
+      const storedRole = localStorage.getItem("userRole");
+
+      if (storedToken && storedUserId && storedRole) {
+        console.log("Restoring session from localStorage...");
+        setAccessToken(storedToken);
+        setUserId(storedUserId);
+        setUserRole(storedRole);
+        setView(storedRole === "admin" ? "admin" : "member");
+        setLoading(false);
+        return;
+      }
+
+      // Otherwise check Supabase session
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
@@ -40,20 +58,37 @@ export default function App() {
 
       if (session) {
         setAccessToken(session.access_token);
-        // Fetch user profile to determine role
-        const response = await fetch(
-          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/profile`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-          }
-        );
+        setUserId(session.user.id);
+        
+        // Try to fetch user profile, but don't fail if backend is down
+        try {
+            const response = await fetch(
+              `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/profile`,
+              {
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+              }
+            );
 
-        if (response.ok) {
-          const result = await response.json();
-          setUserRole(result.user.role);
-          setView(result.user.role === "admin" ? "admin" : "member");
+            if (response.ok) {
+              const result = await response.json();
+              setUserRole(result.user.role);
+              setView(result.user.role === "admin" ? "admin" : "member");
+            
+            // Save to localStorage for next time
+            localStorage.setItem("accessToken", session.access_token);
+            localStorage.setItem("userId", session.user.id);
+            localStorage.setItem("userRole", result.user.role);
+          } else {
+            // Silently default to member if profile fetch fails
+            setUserRole("member");
+            setView("member");
+          }
+        } catch (profileError) {
+          // Silently default to member if profile fetch fails
+          setUserRole("member");
+          setView("member");
         }
       }
     } catch (error) {
@@ -65,6 +100,7 @@ export default function App() {
 
   const handleAuthSuccess = async (token: string, userId: string) => {
     setAccessToken(token);
+    setUserId(userId);
     
     // Fetch user profile to determine role
     try {
@@ -91,13 +127,35 @@ export default function App() {
 
   const handleLogout = () => {
     setAccessToken(null);
+    setUserId(null);
     setUserRole(null);
     setView("landing");
+    
+    // Clear localStorage
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userRole");
+    
+    // Sign out from Supabase
+    supabase.auth.signOut();
   };
 
   const openAuthModal = (tab: "login" | "signup") => {
     setAuthModalTab(tab);
     setAuthModalOpen(true);
+  };
+
+  const handleAdminLogin = async (token: string, userId: string) => {
+    console.log("Admin login successful, setting state...");
+    setAccessToken(token);
+    setUserId(userId);
+    
+    // Store in localStorage
+    localStorage.setItem("accessToken", token);
+    localStorage.setItem("userId", userId);
+    localStorage.setItem("userRole", "admin"); // Store role locally
+    
+    setView("admin");
   };
 
   const handleNavigate = (newView: string) => {
@@ -147,10 +205,14 @@ export default function App() {
         )}
 
         {view === "admin" && accessToken && (
-          <AdminDashboard
+          <NewAdminDashboard
             accessToken={accessToken}
             onLogout={handleLogout}
           />
+        )}
+
+        {view === "admin-setup" && (
+          <AdminSetupPage onSuccess={handleAdminLogin} />
         )}
       </main>
 
@@ -158,6 +220,7 @@ export default function App() {
         <PublicFooter 
           onNavigate={handleNavigate}
           onGetStarted={() => openAuthModal("signup")}
+          onAdminLogin={handleAdminLogin}
         />
       )}
 

@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Clock, ArrowLeft, ExternalLink, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
+import { Clock, ArrowLeft, ExternalLink, Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Card } from "./ui/card";
+import { Badge } from "./ui/badge";
 import { TickerTape } from "./TickerTape";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 
 interface NewsArticle {
   title: string;

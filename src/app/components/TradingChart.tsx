@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-// ✅ v4.0-FINAL - Pure Simulation (Feb 6, 2026)
 import { realTimePriceService } from "../lib/realTimePrice";
 
 interface TradingChartProps {
@@ -7,7 +6,7 @@ interface TradingChartProps {
   interval?: string;
   theme?: "light" | "dark";
   onPriceUpdate?: (price: number) => void;
-  onSymbolChange?: (symbol: string) => void; // ✅ NEW: Track when user changes symbol in chart
+  onSymbolChange?: (symbol: string) => void;
 }
 
 export function TradingChart({ symbol, interval = "D", theme = "light", onPriceUpdate, onSymbolChange }: TradingChartProps) {
@@ -15,9 +14,9 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
   const scriptLoadedRef = useRef(false);
   const widgetRef = useRef<any>(null);
   const symbolChangeListenerRef = useRef<any>(null);
-  const containerIdRef = useRef(`tradingview_${Math.random().toString(36).substring(7)}`); // ✅ STABLE ID!
-  const onSymbolChangeRef = useRef(onSymbolChange); // ✅ Stable ref untuk callback
-  const onPriceUpdateRef = useRef(onPriceUpdate); // ✅ Stable ref untuk price callback
+  const containerIdRef = useRef(`tradingview_${Math.random().toString(36).substring(7)}`);
+  const onSymbolChangeRef = useRef(onSymbolChange);
+  const onPriceUpdateRef = useRef(onPriceUpdate);
 
   // Update callback refs when they change
   useEffect(() => {
@@ -38,7 +37,7 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
 
   const tvInterval = mapInterval(interval);
 
-  // ✅ SUBSCRIBE TO REAL-TIME PRICES v4.0-FINAL
+  // ��� SUBSCRIBE TO REAL-TIME PRICES v4.0-FINAL
   useEffect(() => {
     if (!onPriceUpdateRef.current) return;
 

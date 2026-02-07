@@ -31,9 +31,9 @@ class RealTimePriceService {
   private getBasePrice(symbol: string): number {
     const upper = symbol.toUpperCase();
     
-    // ✅ Crypto - Updated to match current market (Feb 6, 2026)
-    if (upper.includes('BTC')) return 70968; // ✅ MATCH TradingView $70,968!
-    if (upper.includes('ETH')) return 3720;
+    // ✅ Crypto - Updated to match current market (Feb 7, 2026)
+    if (upper.includes('BTC')) return 68073; // ✅ MATCH TradingView $68,073!
+    if (upper.includes('ETH')) return 3520;
     if (upper.includes('BNB')) return 608;
     if (upper.includes('XRP')) return 2.48;
     if (upper.includes('SOL')) return 183;
@@ -178,27 +178,32 @@ class RealTimePriceService {
 
     // Get volatility for this asset
     const volatility = this.getVolatility(symbol);
+    const basePrice = this.getBasePrice(symbol);
     
-    // Random walk with slight trend (Geometric Brownian Motion)
+    // ✅ MEAN REVERSION: Pull price back toward base price (prevents drift)
+    const deviation = (currentPrice - basePrice) / basePrice; // % away from base
+    const meanReversionSpeed = 0.05; // 5% pull back per update
+    const meanReversionForce = -deviation * meanReversionSpeed;
+    
+    // Random walk with mean reversion
     const dt = 1; // time step
-    const drift = 0; // no long-term drift
     const randomShock = (Math.random() - 0.5) * 2; // -1 to 1
     
-    // Price change formula: ΔP = P * (drift * dt + volatility * sqrt(dt) * randomShock)
-    const priceChange = currentPrice * (drift * dt + volatility * Math.sqrt(dt) * randomShock);
+    // Price change formula with mean reversion:
+    // ΔP = P * (mean_reversion + volatility * sqrt(dt) * randomShock)
+    const priceChange = currentPrice * (meanReversionForce + volatility * Math.sqrt(dt) * randomShock);
     
     let newPrice = currentPrice + priceChange;
     
-    // Add occasional larger moves (simulate market events - 3% chance, reduced)
-    if (Math.random() < 0.03) {
-      const spike = (Math.random() - 0.5) * volatility * 3;
+    // Add occasional larger moves (simulate market events - 2% chance)
+    if (Math.random() < 0.02) {
+      const spike = (Math.random() - 0.5) * volatility * 2;
       newPrice = newPrice * (1 + spike);
     }
 
-    // ✅ IMPORTANT: Keep price within ±10% of base (tighter range for consistency)
-    const basePrice = this.getBasePrice(symbol);
-    const minPrice = basePrice * 0.90; // Max 10% below base
-    const maxPrice = basePrice * 1.10; // Max 10% above base
+    // ✅ IMPORTANT: Keep price within ±5% of base (tight range for accuracy!)
+    const minPrice = basePrice * 0.95; // Max 5% below base
+    const maxPrice = basePrice * 1.05; // Max 5% above base
     newPrice = Math.max(minPrice, Math.min(maxPrice, newPrice));
 
     // Store in history (keep last 100 prices)

@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Card } from "./ui/card";
 import { Button } from "./ui/button";
+import { Card } from "./ui/card";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Shield } from "lucide-react";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 import { toast } from "sonner";
 
 interface AdminSetupProps {

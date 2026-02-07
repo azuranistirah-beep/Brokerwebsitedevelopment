@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { LogOut, Users, TrendingUp, Activity, DollarSign, Settings } from "lucide-react";
-import { projectId } from "/utils/supabase/info";
+import { projectId } from "../../../utils/supabase/info";
 import { toast } from "sonner";
 import {
   Dialog,
