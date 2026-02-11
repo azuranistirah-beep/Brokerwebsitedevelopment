@@ -643,20 +643,20 @@ export function MarketsPage() {
                 ) : (
                   <div className="space-y-4">
                     {positions.map((position) => (
-                      <Card key={position.id} className="p-4 border-slate-800 bg-slate-800">
+                      <Card key={position.id} className="p-4 border-slate-700 bg-slate-900/50 hover:bg-slate-800/70 transition-colors">
                         <div className="space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
                               <div className="font-bold text-lg text-white">{position.asset}</div>
                               <div className="text-sm text-slate-400 mt-1">
-                                Entry: <span className="font-semibold text-slate-300">${position.entryPrice.toFixed(2)}</span>
+                                Entry: <span className="font-semibold text-blue-400">${position.entryPrice.toFixed(2)}</span>
                               </div>
                               <div className="text-sm text-slate-400">
-                                Amount: <span className="font-semibold text-slate-300">${position.amount.toFixed(2)}</span>
+                                Amount: <span className="font-semibold text-blue-400">${position.amount.toFixed(2)}</span>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                              <Badge className={position.type === 'up' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}>
+                              <Badge className={position.type === 'up' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}>
                                 {position.type.toUpperCase()}
                               </Badge>
                               <div className="text-xs text-slate-400">
@@ -677,25 +677,26 @@ export function MarketsPage() {
 
               <TabsContent value="history" className="p-6">
                 {history.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400">
-                    No trade history yet. Complete your first trade to see results here.
+                  <div className="text-center py-12">
+                    <div className="text-slate-300 text-lg font-medium mb-2">No trade history yet</div>
+                    <div className="text-slate-500 text-sm">Complete your first trade to see results here.</div>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {history.map((trade) => (
-                      <Card key={trade.id} className="p-4 border-slate-800 bg-slate-800">
+                      <Card key={trade.id} className="p-4 border-slate-700 bg-slate-900/50 hover:bg-slate-800/70 transition-colors">
                         <div className="flex justify-between items-center">
                           <div>
                             <div className="font-bold text-white">{trade.asset}</div>
                             <div className="text-sm text-slate-400">
-                              Entry: ${trade.entryPrice.toFixed(2)} → Exit: ${trade.exitPrice.toFixed(2)}
+                              Entry: <span className="text-blue-400">${trade.entryPrice.toFixed(2)}</span> → Exit: <span className="text-blue-400">${trade.exitPrice.toFixed(2)}</span>
                             </div>
                             <div className="text-xs text-slate-500 mt-1">
                               {new Date(trade.closedAt).toLocaleString()}
                             </div>
                           </div>
                           <div className="text-right">
-                            <Badge className={trade.result === 'win' ? 'bg-green-600' : 'bg-red-600'}>
+                            <Badge className={trade.result === 'win' ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}>
                               {trade.result.toUpperCase()}
                             </Badge>
                             <div className={`text-lg font-bold mt-1 ${trade.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>

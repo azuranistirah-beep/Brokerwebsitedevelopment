@@ -268,11 +268,30 @@ app.post("/make-server-20da1dab/admin/assets", async (c) => {
 
 // Get Price
 app.get("/make-server-20da1dab/price", async (c) => {
-  const symbol = c.req.query('symbol');
-  if (!symbol) return c.json({ error: "Symbol required" }, 400);
-  
-  const price = await getMarketPrice(symbol);
-  return c.json({ symbol, price });
+  try {
+    const symbol = c.req.query('symbol');
+    if (!symbol) return c.json({ error: "Symbol required" }, 400);
+    
+    console.log(`💰 [Price API] Fetching price for: ${symbol}`);
+    
+    // Try to get price with timeout protection
+    const price = await Promise.race([
+      getMarketPrice(symbol),
+      new Promise<number>((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 3000)
+      )
+    ]);
+    
+    console.log(`✅ [Price API] ${symbol}: $${price}`);
+    return c.json({ symbol, price, source: 'backend', timestamp: Date.now() });
+  } catch (error: any) {
+    console.error(`❌ [Price API Error] ${c.req.query('symbol')}:`, error.message);
+    
+    // Fallback to base price if error
+    const symbol = c.req.query('symbol') || '';
+    const fallbackPrice = getBasePrice(symbol);
+    return c.json({ symbol, price: fallbackPrice, source: 'fallback', timestamp: Date.now() });
+  }
 });
 
 // Execute trade

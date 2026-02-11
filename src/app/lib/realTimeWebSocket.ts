@@ -155,15 +155,15 @@ class RealTimeWebSocketService {
           let price: number | null = null;
           let source: string = 'unknown';
           
-          // Strategy 1: Try backend proxy first (bypasses CORS)
+          // Strategy 1: Try backend proxy first (bypasses CORS) with shorter timeout
           if (this.backendConnected !== false) { // Try if not explicitly marked as failed
             try {
               const backendUrl = `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/price?symbol=${cleanSymbol}`;
               
-              console.log(`🔄 [Polling] Fetching ${cleanSymbol} from backend: ${backendUrl}`);
+              console.log(`🔄 [Polling] Fetching ${cleanSymbol} from backend...`);
               
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+              const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout (reduced from 5)
               
               const response = await fetch(backendUrl, {
                 headers: {
@@ -175,11 +175,8 @@ class RealTimeWebSocketService {
               
               clearTimeout(timeoutId);
               
-              console.log(`📡 [Response] ${cleanSymbol}: Status ${response.status}`);
-              
               if (response.ok) {
                 const data = await response.json();
-                console.log(`📦 [Data] ${cleanSymbol}:`, data);
                 
                 price = parseFloat(data.price);
                 source = data.source || 'backend';
