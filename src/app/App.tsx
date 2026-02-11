@@ -12,13 +12,33 @@ import { NewAdminDashboard } from "./components/NewAdminDashboard";
 import { AdminSetupPage } from "./components/AdminSetupPage";
 import { AutoAdminSetup } from "./components/AutoAdminSetup";
 import { RealMoneyDashboard } from "./components/RealMoneyDashboard";
+import { AuthDiagnosticTool } from "./components/AuthDiagnosticTool";
 import { Toaster } from "./components/ui/sonner";
 import { projectId, publicAnonKey } from "../../utils/supabase/info";
 import { supabase } from "./lib/supabaseClient";
-import { sessionMonitor } from "./lib/sessionMonitor";
 import { toast } from "sonner";
 
-type ViewType = "landing" | "markets" | "charts" | "screener" | "news" | "member" | "admin" | "admin-setup" | "real-trading";
+console.log("✅ App.tsx loaded successfully");
+
+// ✅ Inject Supabase config into window for realTimeWebSocket service
+(window as any).__SUPABASE_PROJECT_ID__ = projectId;
+(window as any).__SUPABASE_PUBLIC_ANON_KEY__ = publicAnonKey;
+
+// ✅ Suppress TradingView iframe warnings (safe to ignore)
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  // Ignore TradingView iframe CORS warnings
+  if (
+    args[0]?.toString().includes('iframe') ||
+    args[0]?.toString().includes('contentWindow') ||
+    args[0]?.toString().includes('Cannot listen to the event')
+  ) {
+    return; // Suppress these specific warnings
+  }
+  originalConsoleError(...args);
+};
+
+type ViewType = "landing" | "markets" | "charts" | "screener" | "news" | "member" | "admin" | "admin-setup" | "real-trading" | "auth-diagnostic";
 
 export default function App() {
   const [view, setView] = useState<ViewType>("landing");
@@ -148,6 +168,31 @@ export default function App() {
     
     checkSession();
 
+    // Set up keyboard shortcut for diagnostic tool (Ctrl+Shift+D x 3)
+    let diagnosticPresses = 0;
+    let diagnosticTimer: NodeJS.Timeout;
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+        e.preventDefault();
+        diagnosticPresses++;
+        
+        clearTimeout(diagnosticTimer);
+        
+        if (diagnosticPresses >= 3) {
+          console.log("🔍 Opening Auth Diagnostic Tool...");
+          setView("auth-diagnostic");
+          diagnosticPresses = 0;
+        } else {
+          diagnosticTimer = setTimeout(() => {
+            diagnosticPresses = 0;
+          }, 2000);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+
     // Set up auth state listener for real-time session monitoring
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("🔐 Auth state changed:", event);
@@ -201,6 +246,7 @@ export default function App() {
     return () => {
       subscription.unsubscribe();
       clearInterval(refreshInterval);
+      window.removeEventListener('keydown', handleKeyPress);
     };
   }, [handleLogout]);
 
@@ -344,6 +390,10 @@ export default function App() {
             setShowAutoSetup(false);
             localStorage.setItem("autoSetupDone", "true");
           }} />
+        )}
+
+        {view === "auth-diagnostic" && (
+          <AuthDiagnosticTool />
         )}
       </main>
 

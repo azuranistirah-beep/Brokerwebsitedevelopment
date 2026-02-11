@@ -12,15 +12,15 @@ const ASSETS = [
 
 export function PopularAssets() {
   return (
-    <section className="container mx-auto px-4 py-20 bg-slate-50">
+    <section className="container mx-auto px-4 py-20 bg-slate-950">
       <div className="text-center mb-12">
-        <h2 className="text-3xl font-bold text-slate-900 mb-2">Popular Assets</h2>
-        <p className="text-slate-500">Track and trade the most popular stocks and cryptocurrencies</p>
+        <h2 className="text-3xl font-bold text-white mb-2">Popular Assets</h2>
+        <p className="text-slate-400">Track and trade the most popular stocks and cryptocurrencies</p>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {ASSETS.map((asset) => (
-          <Card key={asset.symbol} className="bg-white border-slate-200 p-4 h-[200px] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+          <Card key={asset.symbol} className="bg-slate-900 border-slate-800 p-4 h-[200px] overflow-hidden shadow-sm hover:shadow-lg hover:border-slate-700 transition-all">
             <MiniChart symbol={asset.symbol} />
           </Card>
         ))}

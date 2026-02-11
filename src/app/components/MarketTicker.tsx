@@ -1,21 +1,69 @@
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { motion } from "motion/react";
+import { useState, useEffect } from "react";
+import { realTimeWebSocket } from "../lib/realTimeWebSocket";
 
-const TICKER_ITEMS = [
-  { symbol: "SPX500", price: 4450.32, change: 0.45 },
-  { symbol: "NSX100", price: 15300.12, change: 0.78 },
-  { symbol: "DJI30", price: 34500.67, change: 0.23 },
-  { symbol: "EURUSD", price: 1.0845, change: -0.12 },
-  { symbol: "GBPUSD", price: 1.2634, change: 0.05 },
-  { symbol: "USDJPY", price: 145.67, change: 0.34 },
-  { symbol: "BTCUSD", price: 64230.50, change: 2.34 },
-  { symbol: "ETHUSD", price: 3450.12, change: 1.56 },
-  { symbol: "SOLUSD", price: 145.23, change: 4.56 },
-  { symbol: "GOLD", price: 1945.34, change: 0.12 },
-  { symbol: "OIL", price: 85.67, change: -0.45 },
+interface TickerItem {
+  symbol: string;
+  price: number;
+  change: number;
+  basePrice: number;
+}
+
+const INITIAL_TICKER_ITEMS: TickerItem[] = [
+  { symbol: "SPX500", price: 4450.32, change: 0.45, basePrice: 4450.32 },
+  { symbol: "NSX100", price: 15300.12, change: 0.78, basePrice: 15300.12 },
+  { symbol: "DJI30", price: 34500.67, change: 0.23, basePrice: 34500.67 },
+  { symbol: "EURUSD", price: 1.0845, change: -0.12, basePrice: 1.0845 },
+  { symbol: "GBPUSD", price: 1.2634, change: 0.05, basePrice: 1.2634 },
+  { symbol: "USDJPY", price: 145.67, change: 0.34, basePrice: 145.67 },
+  { symbol: "BTCUSD", price: 64230.50, change: 2.34, basePrice: 64230.50 },
+  { symbol: "ETHUSD", price: 3450.12, change: 1.56, basePrice: 3450.12 },
+  { symbol: "SOLUSD", price: 145.23, change: 4.56, basePrice: 145.23 },
+  { symbol: "GOLD", price: 1945.34, change: 0.12, basePrice: 1945.34 },
+  { symbol: "OIL", price: 85.67, change: -0.45, basePrice: 85.67 },
 ];
 
 export function MarketTicker() {
+  const [tickerItems, setTickerItems] = useState<TickerItem[]>(INITIAL_TICKER_ITEMS);
+
+  // ✅ Subscribe to real-time updates for crypto symbols
+  useEffect(() => {
+    console.log('🔌 [MarketTicker] Setting up WebSocket subscriptions...');
+    
+    const unsubscribeFunctions: (() => void)[] = [];
+    
+    // Subscribe to crypto symbols
+    const cryptoSymbols = ['BTCUSD', 'ETHUSD', 'SOLUSD'];
+    
+    cryptoSymbols.forEach((symbol) => {
+      const unsubscribe = realTimeWebSocket.subscribe(symbol, (newPrice) => {
+        setTickerItems((prevItems) => {
+          return prevItems.map((item) => {
+            if (item.symbol === symbol) {
+              const change = ((newPrice - item.basePrice) / item.basePrice) * 100;
+              return {
+                ...item,
+                price: newPrice,
+                change: Number(change.toFixed(2)),
+              };
+            }
+            return item;
+          });
+        });
+      });
+      
+      unsubscribeFunctions.push(unsubscribe);
+    });
+    
+    console.log(`✅ [MarketTicker] Subscribed to ${cryptoSymbols.length} symbols`);
+    
+    return () => {
+      console.log('🔌 [MarketTicker] Cleaning up subscriptions...');
+      unsubscribeFunctions.forEach(unsub => unsub());
+    };
+  }, []);
+
   return (
     <div className="bg-white border-b border-slate-200 overflow-hidden py-2 shadow-sm">
       <div className="flex whitespace-nowrap">
@@ -28,7 +76,7 @@ export function MarketTicker() {
             ease: "linear",
           }}
         >
-          {[...TICKER_ITEMS, ...TICKER_ITEMS, ...TICKER_ITEMS].map((item, index) => (
+          {[...tickerItems, ...tickerItems, ...tickerItems].map((item, index) => (
             <div key={index} className="flex items-center gap-2">
               <span className="font-bold text-slate-900">{item.symbol}</span>
               <span className="text-slate-600">{item.price.toFixed(2)}</span>

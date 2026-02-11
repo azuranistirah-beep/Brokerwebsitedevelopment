@@ -30,7 +30,14 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
       });
 
       if (signInError) {
-        setError(signInError.message);
+        // Provide more helpful error messages
+        if (signInError.message.includes('Invalid login credentials')) {
+          setError('Invalid email or password. Please check your admin credentials.');
+        } else if (signInError.message.includes('Email not confirmed')) {
+          setError('Email not confirmed. Please verify your email address.');
+        } else {
+          setError(signInError.message);
+        }
         setLoading(false);
         return;
       }
@@ -53,6 +60,7 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
 
       if (!response.ok) {
         setError("Failed to fetch user profile");
+        await supabase.auth.signOut();
         setLoading(false);
         return;
       }
@@ -72,7 +80,7 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
       onClose();
     } catch (err) {
       console.error("Admin login error:", err);
-      setError("An unexpected error occurred");
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setLoading(false);
     }

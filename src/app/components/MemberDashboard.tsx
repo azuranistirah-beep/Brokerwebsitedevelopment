@@ -5,6 +5,7 @@ import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { TradingChart } from "./TradingChart";
+import { OrderBook } from "./OrderBook";
 import { 
   LogOut, TrendingUp, Wallet, History, User, 
   LayoutDashboard, PieChart, ArrowUp, ArrowDown, 
@@ -125,7 +126,7 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
       console.log(`💰 [MemberDashboard] Price Updated: ${selectedAsset.symbol} = $${currentPrice.toFixed(2)}`);
       setPreviousPrice(currentPrice);
     }
-  }, [currentPrice]);
+  }, [currentPrice, previousPrice, selectedAsset.symbol]);
 
   const loadUserProfile = async () => {
     try {
@@ -458,49 +459,49 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
             </div>
 
             {/* ✅ POIN 6 & 7: Chart Area - Full width, controls di bawah */}
-            <div className="flex-1 flex flex-col min-w-0 relative">
-              {/* Asset Selector - Top Left */}
-              <div className="absolute top-4 left-4 z-10">
-                <Select value={selectedAsset.symbol} onValueChange={(val) => setSelectedAsset(assets.find(a => a.symbol === val) || assets[0])}>
-                   <SelectTrigger className="w-[200px] bg-slate-800 border-slate-700 text-white">
-                     <SelectValue />
-                   </SelectTrigger>
-                   <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                     {assets.map(asset => (
-                       <SelectItem key={asset.symbol} value={asset.symbol}>
-                         <div className="flex justify-between w-full gap-4">
-                           <span>{asset.name}</span>
-                           <span className="text-green-400">{asset.payout}%</span>
-                         </div>
-                       </SelectItem>
-                     ))}
-                   </SelectContent>
-                </Select>
-              </div>
-
-              {/* ✅ POIN 1: Current Price Display - Sinkron 100% dengan TradingView */}
-              <div className="absolute top-4 right-4 z-10 bg-slate-900/95 border border-slate-700 rounded-lg px-4 py-2">
-                <div className="text-xs text-gray-400 mb-1">Current Price</div>
-                <div className="text-2xl font-bold text-white">
-                  {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : "Loading..."}
+            <div className="flex-1 flex min-w-0 relative gap-4 p-4 overflow-hidden">
+              {/* Left Side - Chart and Controls */}
+              <div className="flex-1 flex flex-col min-w-0">
+                {/* Asset Selector - Top Left */}
+                <div className="absolute top-6 left-6 z-10">
+                  <Select value={selectedAsset.symbol} onValueChange={(val) => setSelectedAsset(assets.find(a => a.symbol === val) || assets[0])}>
+                     <SelectTrigger className="w-[200px] bg-slate-800 border-slate-700 text-white">
+                       <SelectValue />
+                     </SelectTrigger>
+                     <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                       {assets.map(asset => (
+                         <SelectItem key={asset.symbol} value={asset.symbol}>
+                           <div className="flex justify-between w-full gap-4">
+                             <span>{asset.name}</span>
+                             <span className="text-green-400">{asset.payout}%</span>
+                           </div>
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                  </Select>
                 </div>
-              </div>
 
-              {/* Trading Chart - Now BIGGER and WIDER */}
-              <div className="flex-1 p-4">
-                <TradingChart 
-                  symbol={selectedAsset.symbol} 
-                  interval={selectedDuration}
-                  onPriceUpdate={setCurrentPrice}
-                />
-              </div>
+                {/* ✅ POIN 1: Current Price Display - Sinkron 100% dengan TradingView */}
+                <div className="absolute top-6 left-[250px] z-10 bg-slate-900/95 border border-slate-700 rounded-lg px-4 py-2">
+                  <div className="text-xs text-gray-400 mb-1">Current Price</div>
+                  <div className="text-2xl font-bold text-white">
+                    {currentPrice > 0 ? `$${currentPrice.toFixed(2)}` : "Loading..."}
+                  </div>
+                </div>
 
-              {/* ✅ POIN 6: Trading Controls - BELOW CHART (Investment Amount & Duration) */}
-              <div className="border-t border-slate-800 bg-slate-900 p-4">
-                <div className="max-w-7xl mx-auto">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    
-                    {/* ✅ POIN 4: Investment Amount dengan tombol +/- */}
+                {/* Trading Chart */}
+                <div className="flex-1 min-h-0">
+                  <TradingChart 
+                    symbol={selectedAsset.symbol} 
+                    interval={selectedDuration}
+                    onPriceUpdate={setCurrentPrice}
+                  />
+                </div>
+
+                {/* ✅ POIN 6: Trading Controls - BELOW CHART */}
+                <div className="border-t border-slate-800 bg-slate-900 p-4 mt-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Investment Amount */}
                     <Card className="bg-slate-800 border-slate-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-300 mb-3">Investment Amount</h3>
                       <div className="flex items-center gap-2">
@@ -528,7 +529,7 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
                       </div>
                     </Card>
 
-                    {/* ✅ POIN 5: Trade Duration - Dalam bahasa Inggris sampai 1 Day */}
+                    {/* Trade Duration */}
                     <Card className="bg-slate-800 border-slate-700 p-4">
                       <h3 className="text-sm font-semibold text-gray-300 mb-3">Trade Duration</h3>
                       <div className="grid grid-cols-5 gap-2">
@@ -576,6 +577,11 @@ export function MemberDashboard({ accessToken, onLogout }: MemberDashboardProps)
                     </Card>
                   </div>
                 </div>
+              </div>
+
+              {/* Right Side - Order Book */}
+              <div className="w-80 flex-shrink-0 hidden xl:block">
+                <OrderBook symbol={selectedAsset.symbol} />
               </div>
             </div>
 

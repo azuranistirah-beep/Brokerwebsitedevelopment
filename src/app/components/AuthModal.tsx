@@ -34,13 +34,55 @@ export function AuthModal({ open, onClose, onSuccess, defaultTab = "login" }: Au
       });
 
       if (error) {
-        toast.error(`Login failed: ${error.message}`);
+        // Provide more helpful error messages
+        if (error.message.includes('Invalid login credentials')) {
+          toast.error('Invalid email or password. Please check your credentials.');
+        } else if (error.message.includes('Email not confirmed')) {
+          toast.error('Please confirm your email address before logging in.');
+        } else {
+          toast.error(`Login failed: ${error.message}`);
+        }
         console.error("Login error:", error);
         setLoading(false);
         return;
       }
 
       if (data.session) {
+        // Check user status before allowing access
+        const profileResponse = await fetch(
+          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/profile`,
+          {
+            headers: {
+              Authorization: `Bearer ${data.session.access_token}`,
+            },
+          }
+        );
+
+        if (!profileResponse.ok) {
+          toast.error('Failed to fetch user profile. Please try again.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        const profileResult = await profileResponse.json();
+        
+        // Check if member is pending approval
+        if (profileResult.user?.status === 'pending') {
+          toast.error('Your account is awaiting admin approval. You will be notified once approved.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
+        // Check if member is rejected
+        if (profileResult.user?.status === 'rejected') {
+          toast.error('Your account has been rejected by admin. Please contact support.');
+          await supabase.auth.signOut();
+          setLoading(false);
+          return;
+        }
+
         toast.success("Login successful!");
         onSuccess(data.session.access_token, data.user.id);
         onClose();

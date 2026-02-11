@@ -1,22 +1,57 @@
-import { defineConfig } from 'vite'
-import path from 'path'
-import tailwindcss from '@tailwindcss/vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import path from 'path';
 
 export default defineConfig({
   plugins: [
-    // The React and Tailwind plugins are both required for Make, even if
-    // Tailwind is not being actively used – do not remove them
     react(),
     tailwindcss(),
   ],
   resolve: {
     alias: {
-      // Alias @ to the src directory
       '@': path.resolve(__dirname, './src'),
+      '@/components': path.resolve(__dirname, './src/app/components'),
+      '@/lib': path.resolve(__dirname, './src/app/lib'),
+      '@/utils': path.resolve(__dirname, './src/utils'),
     },
   },
-
-  // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
-  assetsInclude: ['**/*.svg', '**/*.csv'],
-})
+  build: {
+    // Optimize chunk splitting
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          'supabase': ['@supabase/supabase-js'],
+          'ui': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+          ],
+        },
+      },
+    },
+    // Source maps for debugging
+    sourcemap: true,
+    // Reduce chunk size warnings threshold
+    chunkSizeWarningLimit: 1000,
+  },
+  server: {
+    // Force reload on file changes
+    hmr: {
+      overlay: true,
+    },
+  },
+  optimizeDeps: {
+    // Force re-optimization of dependencies
+    force: true,
+    include: [
+      'react',
+      'react-dom',
+      '@supabase/supabase-js',
+      'sonner',
+      'lucide-react',
+    ],
+  },
+});

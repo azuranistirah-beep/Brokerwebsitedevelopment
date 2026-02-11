@@ -76,6 +76,11 @@ const ALL_SYMBOLS: SymbolOption[] = [
   { symbol: "NASDAQ:NDX", name: "NASDAQ 100", category: "Indices" },
 ];
 
+// ✅ Export helper function to get all symbols
+export function getAllSymbols(): string[] {
+  return ALL_SYMBOLS.map(s => s.symbol);
+}
+
 interface SymbolSelectorProps {
   selectedSymbol: string;
   onSymbolChange: (symbol: string) => void;

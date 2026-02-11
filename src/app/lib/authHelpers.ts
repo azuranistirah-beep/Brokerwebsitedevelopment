@@ -112,6 +112,7 @@ export async function makeAuthenticatedRequest(
   retryCount: number = 0
 ): Promise<Response> {
   const MAX_RETRIES = 2;
+  const TIMEOUT_MS = 15000; // 15 second timeout
   
   try {
     // Get fresh token
@@ -121,45 +122,88 @@ export async function makeAuthenticatedRequest(
       throw new Error("No valid authentication token");
     }
 
-    // Make request with fresh token
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    // Create abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    // Handle 401 errors with retry
-    if (response.status === 401 && retryCount < MAX_RETRIES) {
-      console.log(`⚠️ 401 Unauthorized - Attempt ${retryCount + 1}/${MAX_RETRIES + 1}, refreshing token...`);
-      
-      // Force token refresh
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-      
-      if (refreshError || !refreshData.session) {
-        console.error("❌ Token refresh failed:", refreshError);
-        await handleAuthError(new Error("Token refresh failed"));
+    try {
+      // Make request with fresh token and timeout
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      // Handle 401 errors with retry
+      if (response.status === 401 && retryCount < MAX_RETRIES) {
+        console.log(`⚠️ 401 Unauthorized - Attempt ${retryCount + 1}/${MAX_RETRIES + 1}, refreshing token...`);
+        
+        // Force token refresh
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          console.error("❌ Token refresh failed:", refreshError);
+          await handleAuthError(new Error("Token refresh failed"));
+          throw new Error("Authentication failed");
+        }
+        
+        console.log("✅ Token refreshed, retrying request...");
+        
+        // Retry the request with new token
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+
+      // If still 401 after retries, logout
+      if (response.status === 401 && retryCount >= MAX_RETRIES) {
+        console.error("❌ 401 Unauthorized after retries - Logging out");
+        await handleAuthError(new Error("Invalid token"));
         throw new Error("Authentication failed");
       }
-      
-      console.log("✅ Token refreshed, retrying request...");
-      
-      // Retry the request with new token
-      return makeAuthenticatedRequest(url, options, retryCount + 1);
-    }
 
-    // If still 401 after retries, logout
-    if (response.status === 401 && retryCount >= MAX_RETRIES) {
-      console.error("❌ 401 Unauthorized after retries - Logging out");
-      await handleAuthError(new Error("Invalid token"));
-      throw new Error("Authentication failed");
+      return response;
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      
+      // Handle abort/timeout error
+      if (fetchError.name === 'AbortError') {
+        console.error("❌ Request timeout after", TIMEOUT_MS, "ms");
+        throw new Error("Request timeout - please check your connection");
+      }
+      
+      throw fetchError;
     }
-
-    return response;
   } catch (error) {
     console.error("❌ Error in makeAuthenticatedRequest:", error);
     throw error;
+  }
+}
+
+/**
+ * Make authenticated request with fallback data on error
+ */
+export async function makeAuthenticatedRequestWithFallback<T>(
+  url: string,
+  fallbackData: T,
+  options: RequestInit = {}
+): Promise<{ data: T; error: string | null; isFromCache: boolean }> {
+  try {
+    const response = await makeAuthenticatedRequest(url, options);
+    
+    if (!response.ok) {
+      console.warn(`⚠️ API returned ${response.status}, using fallback data`);
+      return { data: fallbackData, error: `API returned ${response.status}`, isFromCache: true };
+    }
+    
+    const data = await response.json();
+    return { data, error: null, isFromCache: false };
+  } catch (error: any) {
+    console.warn(`⚠️ API request failed: ${error.message}, using fallback data`);
+    return { data: fallbackData, error: error.message, isFromCache: true };
   }
 }

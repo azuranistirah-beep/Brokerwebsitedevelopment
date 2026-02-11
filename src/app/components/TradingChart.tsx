@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { realTimePriceService } from "../lib/realTimePrice";
+import { realTimeWebSocket } from "../lib/realTimeWebSocket";
 
 interface TradingChartProps {
   symbol: string;
@@ -13,7 +13,7 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
   const containerRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
   const widgetRef = useRef<any>(null);
-  const symbolChangeListenerRef = useRef<any>(null);
+  const pricePollingIntervalRef = useRef<any>(null);
   const containerIdRef = useRef(`tradingview_${Math.random().toString(36).substring(7)}`);
   const onSymbolChangeRef = useRef(onSymbolChange);
   const onPriceUpdateRef = useRef(onPriceUpdate);
@@ -36,26 +36,6 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
   };
 
   const tvInterval = mapInterval(interval);
-
-  // ��� SUBSCRIBE TO REAL-TIME PRICES v4.0-FINAL
-  useEffect(() => {
-    if (!onPriceUpdateRef.current) return;
-
-    console.log(`🔌 [TradingChart v4.0] Subscribing to ${symbol}...`);
-
-    // Subscribe to price updates from simulation service
-    const unsubscribe = realTimePriceService.subscribe(symbol, (price) => {
-      if (onPriceUpdateRef.current) {
-        onPriceUpdateRef.current(price);
-      }
-    });
-
-    // Cleanup subscription on unmount
-    return () => {
-      console.log(`🔌 [TradingChart v4.0] Unsubscribing from ${symbol}...`);
-      unsubscribe();
-    };
-  }, [symbol]); // ✅ ONLY symbol dependency!
 
   useEffect(() => {
     // Check if script is already in head
@@ -92,9 +72,9 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
       containerRef.current.innerHTML = "";
       
       // Clear previous polling interval
-      if (symbolChangeListenerRef.current) {
-        clearInterval(symbolChangeListenerRef.current);
-        symbolChangeListenerRef.current = null;
+      if (pricePollingIntervalRef.current) {
+        clearInterval(pricePollingIntervalRef.current);
+        pricePollingIntervalRef.current = null;
       }
 
       widgetRef.current = new (window as any).TradingView.widget({
@@ -107,7 +87,7 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
         locale: "en",
         toolbar_bg: "#f1f3f6",
         enable_publishing: false,
-        allow_symbol_change: false, // ✅ DISABLE - User HARUS ganti via SymbolSelector!
+        allow_symbol_change: false,
         container_id: containerRef.current.id,
         studies: [
           "MASimple@tv-basicstudies",
@@ -117,57 +97,33 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
         popup_width: "1000",
         popup_height: "650",
         hide_side_toolbar: false,
+        // ✅ Disable iframe access attempts to prevent CORS errors
+        disabled_features: [
+          "header_symbol_search",
+          "symbol_search_hot_key"
+        ],
+        enabled_features: [
+          "hide_left_toolbar_by_default"
+        ],
         onChartReady: () => {
-          console.log("✅ TradingView Chart Ready for:", symbol);
+          console.log("✅ [TradingChart] Chart Ready for:", symbol);
           
-          // ✅ CRITICAL: Polling to detect symbol changes (most reliable method!)
-          if (widgetRef.current) {
-            try {
-              const chart = widgetRef.current.activeChart();
-              if (chart) {
-                console.log("✅ Chart instance obtained, starting symbol monitoring...");
-                let lastSymbol = symbol;
-                let pollCount = 0;
-                
-                const pollInterval = setInterval(() => {
-                  try {
-                    const currentSymbol = chart.symbol();
-                    pollCount++;
-                    
-                    // Log every 10 polls to avoid spam
-                    if (pollCount % 10 === 0) {
-                      console.log(`🔍 [Poll #${pollCount}] Current symbol: "${currentSymbol}"`);
-                    }
-                    
-                    if (currentSymbol && currentSymbol !== lastSymbol) {
-                      console.log(`🔥🔥🔥 [SYMBOL CHANGED!] "${lastSymbol}" → "${currentSymbol}"`);
-                      lastSymbol = currentSymbol;
-                      
-                      // Call callback if exists
-                      if (onSymbolChangeRef.current) {
-                        console.log("✅ Calling onSymbolChange callback with:", currentSymbol);
-                        onSymbolChangeRef.current(currentSymbol);
-                      } else {
-                        console.warn("⚠️ onSymbolChange callback is NULL!");
-                      }
-                    }
-                  } catch (e) {
-                    console.error("❌ Error polling symbol:", e);
-                  }
-                }, 500); // Check every 500ms for faster response
-                
-                // Store interval ref for cleanup
-                symbolChangeListenerRef.current = pollInterval;
-                console.log("✅ Symbol change polling started (interval ID:", pollInterval, ")");
-              } else {
-                console.error("❌ Could not get chart instance!");
-              }
-            } catch (e) {
-              console.error("❌ Error setting up symbol change detection:", e);
+          // ✅ Subscribe to realTimeWebSocket for REAL market price updates
+          // Clean symbol: BINANCE:BTCUSDT -> BTCUSDT
+          const cleanSymbol = symbol.replace('BINANCE:', '').replace('NASDAQ:', '').replace('NYSE:', '');
+          console.log(`📊 [TradingChart] Subscribing to WebSocket for cleaned symbol: ${cleanSymbol} (original: ${symbol})`);
+          
+          const unsubscribe = realTimeWebSocket.subscribe(cleanSymbol, (price) => {
+            console.log(`💰 [TradingChart] Price Update: ${cleanSymbol} = $${price.toFixed(2)}`);
+            if (onPriceUpdateRef.current && price > 0) {
+              onPriceUpdateRef.current(price);
             }
-          } else {
-            console.error("❌ widgetRef.current is NULL!");
-          }
+          });
+          
+          // Store unsubscribe function
+          pricePollingIntervalRef.current = unsubscribe;
+          
+          console.log("✅ [TradingChart] Price updates connected via Binance WebSocket");
         }
       });
     }
@@ -177,16 +133,21 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
       initWidget();
     }
     
-    // Cleanup polling interval on unmount or symbol change
+    // Cleanup on unmount or symbol change
     return () => {
-      if (symbolChangeListenerRef.current) {
-        console.log("🛑 Clearing symbol change polling");
-        clearInterval(symbolChangeListenerRef.current);
-        symbolChangeListenerRef.current = null;
+      if (pricePollingIntervalRef.current) {
+        console.log("🛑 [TradingChart] Unsubscribing from price updates");
+        // Call unsubscribe function if it exists
+        if (typeof pricePollingIntervalRef.current === 'function') {
+          pricePollingIntervalRef.current();
+        } else {
+          clearInterval(pricePollingIntervalRef.current);
+        }
+        pricePollingIntervalRef.current = null;
       }
     };
 
-  }, [symbol, tvInterval, theme]); // ✅ REMOVED onSymbolChange from deps!
+  }, [symbol, tvInterval, theme]);
 
   return (
     <div className="w-full h-full min-h-[400px] bg-white rounded-lg overflow-hidden border border-slate-200">

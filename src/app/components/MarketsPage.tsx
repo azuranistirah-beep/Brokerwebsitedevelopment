@@ -1,16 +1,17 @@
-import { useState, useEffect } from "react";
-import { Card } from "./ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Badge } from "./ui/badge";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "./ui/button";
-import { TrendingUp, TrendingDown, Clock, DollarSign, Target, Trophy, Activity, Plus, Minus } from "lucide-react";
-import { TickerTape } from "./TickerTape";
-import { TradingChart } from "./TradingChart";
+import { Card, CardContent } from "./ui/card";
+import { Badge } from "./ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Activity, DollarSign, Target, Trophy, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { PositionCountdown } from "./PositionCountdown";
-import { realTimePriceService } from "../lib/realTimePrice";
+import { realTimeWebSocket } from "../lib/realTimeWebSocket";
 import { MiniChart } from "./MiniChart";
-import { SymbolSelector } from "./SymbolSelector"; // ✅ NEW!
+import { SymbolSelector, getAllSymbols } from "./SymbolSelector";
+import { TickerTape } from "./TickerTape";
+import { TradingChart } from "./TradingChart";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 
 interface DemoAccount {
   balance: number;
@@ -61,28 +62,6 @@ const DURATIONS = [
   { label: "1 Day", value: "1d" },
 ];
 
-// ✅ Popular Assets - More assets than homepage (Real-time charts)
-const POPULAR_ASSETS = [
-  { symbol: "FX:EURUSD", name: "EUR/USD" },
-  { symbol: "NASDAQ:AAPL", name: "Apple Inc" },
-  { symbol: "BINANCE:BTCUSDT", name: "Bitcoin" },
-  { symbol: "NASDAQ:TSLA", name: "Tesla" },
-  { symbol: "NASDAQ:NVDA", name: "NVIDIA" },
-  { symbol: "BINANCE:ETHUSDT", name: "Ethereum" },
-  { symbol: "FX:GBPUSD", name: "GBP/USD" },
-  { symbol: "NASDAQ:GOOGL", name: "Google" },
-  { symbol: "NASDAQ:MSFT", name: "Microsoft" },
-  { symbol: "BINANCE:BNBUSDT", name: "Binance Coin" },
-  { symbol: "NASDAQ:AMZN", name: "Amazon" },
-  { symbol: "FX:USDJPY", name: "USD/JPY" },
-  { symbol: "NASDAQ:META", name: "Meta" },
-  { symbol: "BINANCE:SOLUSDT", name: "Solana" },
-  { symbol: "FX:AUDUSD", name: "AUD/USD" },
-  { symbol: "NASDAQ:NFLX", name: "Netflix" },
-  { symbol: "BINANCE:ADAUSDT", name: "Cardano" },
-  { symbol: "NASDAQ:AMD", name: "AMD" },
-];
-
 // Asset type detection and market hours
 type AssetType = 'crypto' | 'forex' | 'stocks' | 'commodities' | 'indices';
 
@@ -119,7 +98,7 @@ const getAssetType = (symbol: string): AssetType => {
   return 'stocks';
 };
 
-const isMarketOpen = (symbol: string): { isOpen: boolean; message: string } => {
+const getMarketStatus = (symbol: string): { isOpen: boolean; message: string } => {
   const assetType = getAssetType(symbol);
   const now = new Date();
   const day = now.getDay(); // 0 = Sunday, 6 = Saturday
@@ -171,9 +150,15 @@ const isMarketOpen = (symbol: string): { isOpen: boolean; message: string } => {
 };
 
 export function MarketsPage() {
-  const [selectedSymbol, setSelectedSymbol] = useState("BINANCE:BTCUSDT"); // ✅ MATCH WITH TRADINGVIEW!
+  const [selectedSymbol, setSelectedSymbol] = useState("BINANCE:BTCUSDT");
+  const [selectedInterval, setSelectedInterval] = useState("1d");
+  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [previousPrice, setPreviousPrice] = useState<number>(0);
+  const [tradingViewPrice, setTradingViewPrice] = useState<number>(0); // ✅ NEW: Store TradingView real price
   const [selectedAmount, setSelectedAmount] = useState(10);
   const [selectedDuration, setSelectedDuration] = useState("1m");
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [history, setHistory] = useState<TradeHistory[]>([]);
   const [demoAccount, setDemoAccount] = useState<DemoAccount>({
     balance: 10000,
     totalTrades: 0,
@@ -181,48 +166,49 @@ export function MarketsPage() {
     totalProfit: 0,
     openPositions: 0
   });
-  const [positions, setPositions] = useState<Position[]>([]);
-  const [history, setHistory] = useState<TradeHistory[]>([]);
+  const [popularAssets, setPopularAssets] = useState<string[]>([]);
   
-  // ✅ CRITICAL FIX: Store chart widget reference to get REAL price!
-  const [chartWidget, setChartWidget] = useState<any>(null);
-  
-  // ✅ POIN 1: Current price sinkron 100% dengan TradingView chart
-  const [currentPrice, setCurrentPrice] = useState(70968);
-  const [previousPrice, setPreviousPrice] = useState(70968);
-  const [priceChange, setPriceChange] = useState(0); // Track price change for animation
-
+  const marketStatus = getMarketStatus(selectedSymbol);
   const payoutPercentage = 95;
   const potentialProfit = (selectedAmount * payoutPercentage) / 100;
-  const marketStatus = isMarketOpen(selectedSymbol);
-
-  // Track price changes for visual feedback
+  
+  // Initialize popular assets
   useEffect(() => {
-    const change = currentPrice - previousPrice;
-    setPriceChange(change);
-    setPreviousPrice(currentPrice);
+    const allSymbols = getAllSymbols();
+    const shuffled = [...allSymbols].sort(() => Math.random() - 0.5);
+    setPopularAssets(shuffled.slice(0, 12));
+  }, []);
 
-    // Reset animation after 500ms
-    const timer = setTimeout(() => setPriceChange(0), 500);
-    return () => clearTimeout(timer);
-  }, [currentPrice]);
-
-  // ✅ REAL-TIME PRICE UPDATE - Subscribe langsung ke realTimePriceService (sama seperti ticker tape!)
+  // ✅ Subscribe to Real-Time WebSocket for price updates
   useEffect(() => {
-    console.log(`🔥 [Markets] Subscribing to REAL-TIME price for ${selectedSymbol}...`);
+    // Extract clean symbol from TradingView format
+    const cleanSymbol = selectedSymbol.replace('BINANCE:', '').replace('NASDAQ:', '').replace('NYSE:', '');
     
-    // Subscribe to real-time price updates
-    const unsubscribe = realTimePriceService.subscribe(selectedSymbol, (price) => {
-      setCurrentPrice(price);
-      console.log(`��� [Markets] Real-time price update: ${selectedSymbol} = $${price.toFixed(2)}`);
+    console.log(`🔗 [WebSocket] Subscribing to: ${cleanSymbol}`);
+    
+    const unsubscribe = realTimeWebSocket.subscribe(cleanSymbol, (price) => {
+      if (price && price > 0) {
+        setPreviousPrice(currentPrice || price);
+        setCurrentPrice(price);
+        console.log(`💰 [WebSocket Update] ${cleanSymbol}: $${price.toFixed(2)}`);
+      }
     });
-
-    // Cleanup on unmount or symbol change
+    
     return () => {
-      console.log(`🛑 [Markets] Unsubscribing from ${selectedSymbol}`);
+      console.log(`🔌 [WebSocket] Unsubscribing from: ${cleanSymbol}`);
       unsubscribe();
     };
-  }, [selectedSymbol]);
+  }, [selectedSymbol, currentPrice]);
+
+  // ✅ Handle TradingView price updates (REAL market data from TradingView API)
+  const handleTradingViewPriceUpdate = (price: number) => {
+    if (price && price > 0) {
+      setPreviousPrice(currentPrice || price);
+      setTradingViewPrice(price);
+      setCurrentPrice(price); // ✅ Use TradingView price as THE ONLY source of truth!
+      console.log(`📈 [TradingView REAL DATA] ${selectedSymbol} = $${price.toFixed(2)}`);
+    }
+  };
 
   // Log price updates
   useEffect(() => {
@@ -238,18 +224,25 @@ export function MarketsPage() {
       if (expiredPositions.length > 0) {
         console.log(`⏰ Found ${expiredPositions.length} expired position(s)!`);
         expiredPositions.forEach(position => {
-          // ✅ CRITICAL: Get EXACT current price from realTimePriceService at exit moment
-          const realExitPrice = realTimePriceService.getCurrentPrice(position.asset);
+          // ✅ CRITICAL: Use current price from state (updated from TradingView)
+          // This ensures exit price matches what's shown in the chart
+          const realExitPrice = currentPrice || tradingViewPrice;
           
-          console.log(`📊 Closing position: ${position.asset} ${position.type} | Entry: $${position.entryPrice.toFixed(2)} | Exit: $${realExitPrice.toFixed(2)}`);
-          closePositionWithRealPrice(position, realExitPrice);
+          if (!realExitPrice || realExitPrice === 0) {
+            console.warn(`⚠️ No valid price available for ${position.asset}, using fallback from WebSocket`);
+            const fallbackPrice = realTimeWebSocket.getCurrentPrice(position.asset);
+            closePositionWithRealPrice(position, fallbackPrice);
+          } else {
+            console.log(`📊 Closing position: ${position.asset} ${position.type} | Entry: $${position.entryPrice.toFixed(2)} | Exit: $${realExitPrice.toFixed(2)} (from TradingView)`);
+            closePositionWithRealPrice(position, realExitPrice);
+          }
         });
       }
     };
 
     const interval = setInterval(checkExpiredPositions, 1000);
     return () => clearInterval(interval);
-  }, [positions, currentPrice]);
+  }, [positions, currentPrice, tradingViewPrice]);
 
   const closePositionWithRealPrice = (position: Position, exitPrice: number) => {
     // ✅ CRITICAL: Use REAL price from TradingView chart
@@ -339,13 +332,20 @@ export function MarketsPage() {
       return;
     }
 
-    // ✅ CRITICAL: Use REAL current price from realTimePriceService
-    const realEntryPrice = realTimePriceService.getCurrentPrice(selectedSymbol);
+    // ✅ CRITICAL: Use current price from TradingView (via state)
+    // This is the EXACT price shown in the UI and extracted from TradingView chart
+    const realEntryPrice = currentPrice || tradingViewPrice;
+    
+    if (!realEntryPrice || realEntryPrice === 0) {
+      toast.error("Waiting for price data... Please try again in a moment.");
+      return;
+    }
     
     console.log(`\n========================================`);
     console.log(`🔥 TRADE OPENED: ${type.toUpperCase()} ${selectedSymbol}`);
-    console.log(`💰 Entry Price (REAL from service): $${realEntryPrice.toFixed(2)}`);
-    console.log(`💰 Current Price (from state): $${currentPrice.toFixed(2)}`);
+    console.log(`💰 Entry Price (EXACT from TradingView): $${realEntryPrice.toFixed(2)}`);
+    console.log(`💰 TradingView Price State: $${tradingViewPrice.toFixed(2)}`);
+    console.log(`✅ Using REAL market price from chart`);
     console.log(`📊 Investment Amount: $${selectedAmount.toFixed(2)}`);
     console.log(`⏱️  Duration: ${selectedDuration}`);
     console.log(`========================================\n`);
@@ -371,7 +371,7 @@ export function MarketsPage() {
 
     // Show success notification with REAL entry price
     toast.success(`Trade opened: ${type.toUpperCase()} ${selectedSymbol} - $${selectedAmount.toFixed(2)}`, {
-      description: `Entry price: $${realEntryPrice.toFixed(2)} • Duration: ${selectedDuration}`
+      description: `Entry price: $${realEntryPrice.toFixed(2)} (LIVE) • Duration: ${selectedDuration} • Potential profit: +$${potentialProfit.toFixed(2)}`
     });
 
     // Position will auto-close via useEffect when expired
@@ -404,10 +404,10 @@ export function MarketsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen bg-slate-950 pb-20">
       {/* Ticker Tape */}
-      <div className="bg-white border-b border-slate-200">
-        <TickerTape colorTheme="light" />
+      <div className="bg-slate-900 border-b border-slate-800">
+        <TickerTape colorTheme="dark" />
       </div>
       
       <div className="pt-4">
@@ -415,10 +415,10 @@ export function MarketsPage() {
           {/* Demo Account Header */}
           <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Markets</h1>
-              <p className="text-slate-500 text-sm">Practice trading with virtual funds</p>
+              <h1 className="text-2xl font-bold text-white">Markets</h1>
+              <p className="text-slate-400 text-sm">Practice trading with virtual funds</p>
             </div>
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-lg">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl shadow-lg">
               <div className="text-xs opacity-90 mb-1">Demo Account Balance</div>
               <div className="text-2xl font-bold">${demoAccount.balance.toLocaleString()}</div>
             </div>
@@ -426,52 +426,52 @@ export function MarketsPage() {
 
           {/* ✅ POIN 3: Trading Stats - Sinkronisasi akurat */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Card className="p-4 border-slate-200 bg-white">
+            <Card className="p-4 border-slate-800 bg-slate-900">
               <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <Activity className="h-5 w-5 text-blue-600" />
+                <div className="bg-blue-600/20 p-2 rounded-lg">
+                  <Activity className="h-5 w-5 text-blue-400" />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">Total Trades</div>
-                  <div className="text-xl font-bold text-slate-900">{demoAccount.totalTrades}</div>
+                  <div className="text-xs text-slate-400">Total Trades</div>
+                  <div className="text-xl font-bold text-white">{demoAccount.totalTrades}</div>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-4 border-slate-200 bg-white">
+            <Card className="p-4 border-slate-800 bg-slate-900">
               <div className="flex items-center gap-3">
-                <div className="bg-green-100 p-2 rounded-lg">
-                  <Trophy className="h-5 w-5 text-green-600" />
+                <div className="bg-green-600/20 p-2 rounded-lg">
+                  <Trophy className="h-5 w-5 text-green-400" />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">Win Rate</div>
-                  <div className="text-xl font-bold text-slate-900">{demoAccount.winRate.toFixed(1)}%</div>
+                  <div className="text-xs text-slate-400">Win Rate</div>
+                  <div className="text-xl font-bold text-white">{demoAccount.winRate.toFixed(1)}%</div>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-4 border-slate-200 bg-white">
+            <Card className="p-4 border-slate-800 bg-slate-900">
               <div className="flex items-center gap-3">
-                <div className={`${demoAccount.totalProfit >= 0 ? 'bg-green-100' : 'bg-red-100'} p-2 rounded-lg`}>
-                  <DollarSign className={`h-5 w-5 ${demoAccount.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                <div className={`${demoAccount.totalProfit >= 0 ? 'bg-green-600/20' : 'bg-red-600/20'} p-2 rounded-lg`}>
+                  <DollarSign className={`h-5 w-5 ${demoAccount.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`} />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">Total Profit</div>
-                  <div className={`text-xl font-bold ${demoAccount.totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className="text-xs text-slate-400">Total Profit</div>
+                  <div className={`text-xl font-bold ${demoAccount.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     ${demoAccount.totalProfit.toFixed(2)}
                   </div>
                 </div>
               </div>
             </Card>
 
-            <Card className="p-4 border-slate-200 bg-white">
+            <Card className="p-4 border-slate-800 bg-slate-900">
               <div className="flex items-center gap-3">
-                <div className="bg-orange-100 p-2 rounded-lg">
-                  <Target className="h-5 w-5 text-orange-600" />
+                <div className="bg-orange-600/20 p-2 rounded-lg">
+                  <Target className="h-5 w-5 text-orange-400" />
                 </div>
                 <div>
-                  <div className="text-xs text-slate-500">Open Positions</div>
-                  <div className="text-xl font-bold text-slate-900">{demoAccount.openPositions}</div>
+                  <div className="text-xs text-slate-400">Open Positions</div>
+                  <div className="text-xl font-bold text-white">{demoAccount.openPositions}</div>
                 </div>
               </div>
             </Card>
@@ -479,34 +479,10 @@ export function MarketsPage() {
 
           {/* ✅ POIN 6 & 7: New Layout - Chart Full Width, Controls Below */}
           <div className="space-y-6">
-            {/* ✅ Popular Assets Section - Real-time mini charts */}
-            <div className="mb-8">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">Popular Assets</h2>
-                <p className="text-slate-500 text-sm">Track and trade the most popular stocks and cryptocurrencies</p>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                {POPULAR_ASSETS.map((asset) => (
-                  <Card 
-                    key={asset.symbol} 
-                    className={`bg-white p-3 h-[160px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer ${
-                      selectedSymbol === asset.symbol 
-                        ? 'border-2 border-blue-600 ring-2 ring-blue-200' 
-                        : 'border border-slate-200 hover:border-blue-400'
-                    }`}
-                    onClick={() => setSelectedSymbol(asset.symbol)} // ✅ Use FULL symbol with exchange prefix!
-                  >
-                    <MiniChart symbol={asset.symbol} />
-                  </Card>
-                ))}
-              </div>
-            </div>
-
             {/* Chart Area - Full Width */}
-            <Card className="p-4 border-slate-200 bg-white">
-              {/* ✅ Symbol Selector + Current Price Display */}
-              <div className="grid md:grid-cols-2 gap-4 mb-4 pb-4 border-b border-slate-200">
-                {/* Symbol Selector */}
+            <Card className="p-4 border-slate-800 bg-slate-900">
+              {/* ✅ Symbol Selector Only */}
+              <div className="mb-4 pb-4 border-b border-slate-800">
                 <SymbolSelector 
                   selectedSymbol={selectedSymbol}
                   onSymbolChange={(newSymbol) => {
@@ -514,64 +490,83 @@ export function MarketsPage() {
                     setSelectedSymbol(newSymbol);
                   }}
                 />
-                
-                {/* Current Price Display */}
-                <div className="bg-slate-50 border-2 border-slate-300 rounded-lg px-4 py-3">
-                  <div className="text-xs text-slate-500 font-medium mb-1">Current Market Price</div>
-                  <div className="text-2xl font-bold text-slate-900">${currentPrice.toFixed(2)}</div>
-                  <Badge className={marketStatus.isOpen ? "bg-green-600 mt-2" : "bg-red-600 mt-2"}>
-                    {marketStatus.message}
-                  </Badge>
-                </div>
               </div>
 
               {/* TradingView Chart */}
               <div className="h-[500px]">
                 <TradingChart 
                   symbol={selectedSymbol}
-                  onPriceUpdate={(price) => {
-                    setCurrentPrice(price);
-                  }}
+                  onPriceUpdate={handleTradingViewPriceUpdate}
+                  theme="dark"
                 />
+              </div>
+              
+              {/* ✅ REAL-TIME PRICE OVERLAY - This is the EXACT price used for trading! */}
+              <div className="mt-4 bg-gradient-to-r from-slate-800 to-slate-900 border-2 border-green-500/50 rounded-lg p-4 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs text-green-400 font-bold mb-1 uppercase tracking-wide">💰 Live Market Price</div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-3xl font-bold text-white">
+                        ${currentPrice.toFixed(2)}
+                      </span>
+                      <Badge className={currentPrice >= previousPrice ? "bg-green-600" : "bg-red-600"}>
+                        {currentPrice >= previousPrice ? '▲' : '▼'} {Math.abs(currentPrice - previousPrice).toFixed(2)}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-green-400 font-semibold mb-1">✅ All trades use THIS price</div>
+                    <div className="text-xs text-slate-400">Updated every second</div>
+                  </div>
+                </div>
+                <div className="mt-3 pt-3 border-t border-slate-700">
+                  <div className="flex items-center gap-2 text-xs">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="font-bold text-green-400">LIVE PRICING ACTIVE</span>
+                    <span className="text-slate-600">•</span>
+                    <span className="text-slate-400">Entry & Exit prices synchronized</span>
+                  </div>
+                </div>
               </div>
             </Card>
 
-            {/* ✅ POIN 6: Trading Controls - BELOW CHART */}
+            {/* ✅ POIN 6: Trading Controls - BELOW CHART (Popular Assets moved to bottom) */}
             <div className="grid md:grid-cols-3 gap-6">
               {/* ✅ POIN 4: Investment Amount dengan +/- buttons */}
-              <Card className="p-6 border-slate-200 bg-white">
-                <h3 className="font-bold text-slate-900 mb-4">Investment Amount</h3>
+              <Card className="p-6 border-slate-800 bg-slate-900">
+                <h3 className="font-bold text-white mb-4">Investment Amount</h3>
                 <div className="flex items-center gap-2 mb-4">
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={handleAmountDecrease}
                     disabled={INVESTMENT_AMOUNTS.indexOf(selectedAmount) === 0}
-                    className="border-slate-300 hover:bg-slate-100"
+                    className="border-slate-700 hover:bg-slate-800 text-white"
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <div className="flex-1 bg-slate-50 border-2 border-blue-600 rounded-lg px-4 py-3 text-center">
-                    <div className="text-2xl font-bold text-slate-900">${selectedAmount.toLocaleString()}</div>
+                  <div className="flex-1 bg-slate-800 border-2 border-blue-500 rounded-lg px-4 py-3 text-center">
+                    <div className="text-2xl font-bold text-white">${selectedAmount.toLocaleString()}</div>
                   </div>
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={handleAmountIncrease}
                     disabled={INVESTMENT_AMOUNTS.indexOf(selectedAmount) === INVESTMENT_AMOUNTS.length - 1}
-                    className="border-slate-300 hover:bg-slate-100"
+                    className="border-slate-700 hover:bg-slate-800 text-white"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="text-xs text-slate-500 text-center">
+                <div className="text-xs text-slate-400 text-center">
                   Range: $1 - $10,000
                 </div>
               </Card>
 
               {/* ✅ POIN 5: Trade Duration - Dalam bahasa Inggris sampai 1 Day */}
-              <Card className="p-6 border-slate-200 bg-white">
-                <h3 className="font-bold text-slate-900 mb-4">Trade Duration</h3>
+              <Card className="p-6 border-slate-800 bg-slate-900">
+                <h3 className="font-bold text-white mb-4">Trade Duration</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {DURATIONS.map((duration) => (
                     <Button
@@ -580,8 +575,8 @@ export function MarketsPage() {
                       size="sm"
                       onClick={() => setSelectedDuration(duration.value)}
                       className={selectedDuration === duration.value 
-                        ? "bg-blue-600 hover:bg-blue-700 text-white text-xs" 
-                        : "border-slate-300 text-slate-700 hover:bg-slate-100 text-xs"
+                        ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs" 
+                        : "border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
                       }
                     >
                       {duration.label}
@@ -591,18 +586,18 @@ export function MarketsPage() {
               </Card>
 
               {/* Trade Summary & Buttons */}
-              <Card className="p-6 border-slate-200 bg-white">
-                <h3 className="font-bold text-slate-900 mb-4">Execute Trade</h3>
+              <Card className="p-6 border-slate-800 bg-slate-900">
+                <h3 className="font-bold text-white mb-4">Execute Trade</h3>
                 <div className="space-y-3 mb-4">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600">Market Status</span>
+                    <span className="text-slate-400">Market Status</span>
                     <Badge className={marketStatus.isOpen ? "bg-green-600" : "bg-red-600"}>
                       {marketStatus.isOpen ? "Open" : "Closed"}
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-slate-600">Potential Profit</span>
-                    <span className="font-bold text-green-600">+${potentialProfit.toFixed(2)}</span>
+                    <span className="text-slate-400">Potential Profit</span>
+                    <span className="font-bold text-green-400">+${potentialProfit.toFixed(2)}</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -628,48 +623,48 @@ export function MarketsPage() {
           </div>
 
           {/* Positions and History Tabs */}
-          <Card className="mt-6 border-slate-200 bg-white">
+          <Card className="mt-6 border-slate-800 bg-slate-900">
             <Tabs defaultValue="positions" className="w-full">
-              <TabsList className="w-full justify-start border-b border-slate-200 bg-transparent rounded-none h-12">
-                <TabsTrigger value="positions" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none">
+              <TabsList className="w-full justify-start border-b border-slate-800 bg-transparent rounded-none h-12">
+                <TabsTrigger value="positions" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 rounded-none text-slate-400 data-[state=active]:text-white">
                   Open Positions ({positions.length})
                 </TabsTrigger>
-                <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none">
+                <TabsTrigger value="history" className="data-[state=active]:border-b-2 data-[state=active]:border-blue-500 rounded-none text-slate-400 data-[state=active]:text-white">
                   History ({history.length})
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="positions" className="p-6">
                 {positions.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500">
+                  <div className="text-center py-12 text-slate-400">
                     No open positions. Start trading to see your positions here.
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {positions.map((position) => (
-                      <Card key={position.id} className="p-4 border-slate-200 bg-slate-50">
+                      <Card key={position.id} className="p-4 border-slate-800 bg-slate-800">
                         <div className="space-y-3">
                           <div className="flex justify-between items-start">
                             <div>
-                              <div className="font-bold text-lg text-slate-900">{position.asset}</div>
-                              <div className="text-sm text-slate-500 mt-1">
-                                Entry: <span className="font-semibold text-slate-700">${position.entryPrice.toFixed(2)}</span>
+                              <div className="font-bold text-lg text-white">{position.asset}</div>
+                              <div className="text-sm text-slate-400 mt-1">
+                                Entry: <span className="font-semibold text-slate-300">${position.entryPrice.toFixed(2)}</span>
                               </div>
-                              <div className="text-sm text-slate-500">
-                                Amount: <span className="font-semibold text-slate-700">${position.amount.toFixed(2)}</span>
+                              <div className="text-sm text-slate-400">
+                                Amount: <span className="font-semibold text-slate-300">${position.amount.toFixed(2)}</span>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
                               <Badge className={position.type === 'up' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}>
                                 {position.type.toUpperCase()}
                               </Badge>
-                              <div className="text-xs text-slate-500">
+                              <div className="text-xs text-slate-400">
                                 Duration: {position.duration}
                               </div>
                             </div>
                           </div>
-                          <div className="flex justify-between items-center pt-2 border-t border-slate-200">
-                            <span className="text-xs text-slate-600 font-medium">Time Remaining:</span>
+                          <div className="flex justify-between items-center pt-2 border-t border-slate-700">
+                            <span className="text-xs text-slate-400 font-medium">Time Remaining:</span>
                             <PositionCountdown expiresAt={position.expiresAt} />
                           </div>
                         </div>
@@ -681,20 +676,20 @@ export function MarketsPage() {
 
               <TabsContent value="history" className="p-6">
                 {history.length === 0 ? (
-                  <div className="text-center py-12 text-slate-500">
+                  <div className="text-center py-12 text-slate-400">
                     No trade history yet. Complete your first trade to see results here.
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {history.map((trade) => (
-                      <Card key={trade.id} className="p-4 border-slate-200 bg-slate-50">
+                      <Card key={trade.id} className="p-4 border-slate-800 bg-slate-800">
                         <div className="flex justify-between items-center">
                           <div>
-                            <div className="font-bold text-slate-900">{trade.asset}</div>
-                            <div className="text-sm text-slate-500">
+                            <div className="font-bold text-white">{trade.asset}</div>
+                            <div className="text-sm text-slate-400">
                               Entry: ${trade.entryPrice.toFixed(2)} → Exit: ${trade.exitPrice.toFixed(2)}
                             </div>
-                            <div className="text-xs text-slate-400 mt-1">
+                            <div className="text-xs text-slate-500 mt-1">
                               {new Date(trade.closedAt).toLocaleString()}
                             </div>
                           </div>
@@ -702,7 +697,7 @@ export function MarketsPage() {
                             <Badge className={trade.result === 'win' ? 'bg-green-600' : 'bg-red-600'}>
                               {trade.result.toUpperCase()}
                             </Badge>
-                            <div className={`text-lg font-bold mt-1 ${trade.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            <div className={`text-lg font-bold mt-1 ${trade.profit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                               {trade.profit >= 0 ? '+' : ''}${trade.profit.toFixed(2)}
                             </div>
                           </div>
@@ -714,6 +709,29 @@ export function MarketsPage() {
               </TabsContent>
             </Tabs>
           </Card>
+
+          {/* ✅ Popular Assets Section - Real-time mini charts - MOVED TO BOTTOM */}
+          <div className="mt-6">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-white mb-2">Popular Assets</h2>
+              <p className="text-slate-400 text-sm">Track and trade the most popular stocks and cryptocurrencies</p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {popularAssets.map((asset) => (
+                <Card 
+                  key={asset} 
+                  className={`bg-slate-900 p-3 h-[160px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer ${
+                    selectedSymbol === asset 
+                      ? 'border-2 border-blue-500 ring-2 ring-blue-600/20' 
+                      : 'border border-slate-800 hover:border-blue-600'
+                  }`}
+                  onClick={() => setSelectedSymbol(asset)}
+                >
+                  <MiniChart symbol={asset} />
+                </Card>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>

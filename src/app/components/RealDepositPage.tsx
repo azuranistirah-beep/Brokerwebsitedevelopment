@@ -153,6 +153,23 @@ export function RealDepositPage({ accessToken, onSuccess }: RealDepositPageProps
           </div>
         </div>
 
+        {/* Bonus Info Box */}
+        {amount >= 1000 && (
+          <div className="bg-gradient-to-r from-yellow-900/30 to-yellow-800/30 border border-yellow-600/50 rounded-lg p-4 flex items-start gap-3 animate-pulse">
+            <div className="w-10 h-10 bg-yellow-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-2xl">🎁</span>
+            </div>
+            <div className="text-sm">
+              <p className="font-bold text-yellow-300 mb-1">100% Deposit Bonus Eligible!</p>
+              <p className="text-yellow-100">
+                You'll receive <span className="font-bold">${amount.toLocaleString()}</span> bonus, 
+                trading with a total of <span className="font-bold text-yellow-300">${(amount * 2).toLocaleString()}</span>!
+              </p>
+              <p className="text-yellow-200/60 text-xs mt-2">*Available exclusively for new accounts with minimum deposit of $1,000</p>
+            </div>
+          </div>
+        )}
+
         {/* Submit */}
         <button
           type="submit"

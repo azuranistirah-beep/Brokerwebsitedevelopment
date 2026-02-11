@@ -51,27 +51,27 @@ export function PublicHeader({ onLogin, onGetStarted, onNavigate, currentView }:
   ];
 
   return (
-    <header className="border-b border-slate-200 bg-white sticky top-0 z-50 backdrop-blur-md bg-white/90">
+    <header className="border-b border-slate-800 bg-slate-950/95 sticky top-0 z-50 backdrop-blur-md">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate("landing")}>
-            <div className="bg-blue-600 rounded p-1">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded p-1">
               <BarChart3 className="h-6 w-6 text-white" />
             </div>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">Investoft</span>
+            <span className="text-xl font-bold text-white tracking-tight">Investoft</span>
           </div>
           
-          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-600">
+          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-400">
             {navItems.map((item) => (
               <button 
                 key={item.id}
                 onClick={() => onNavigate(item.id)} 
-                className={`hover:text-blue-600 transition-colors ${currentView === item.id ? "text-blue-600 font-bold" : ""}`}
+                className={`hover:text-blue-400 transition-colors ${currentView === item.id ? "text-blue-400 font-bold" : ""}`}
               >
                 {item.label}
               </button>
             ))}
-            <button onClick={onGetStarted} className="hover:text-blue-600 transition-colors font-bold text-blue-600">Trade</button>
+            <button onClick={onGetStarted} className="hover:text-blue-400 transition-colors font-bold text-blue-400">Trade</button>
           </nav>
         </div>
 
@@ -81,24 +81,24 @@ export function PublicHeader({ onLogin, onGetStarted, onNavigate, currentView }:
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input 
                 placeholder="Search stocks, forex, crypto..." 
-                className="pl-9 bg-slate-100 border-slate-200 text-slate-900 h-9 focus-visible:ring-blue-600 focus:bg-white transition-colors w-full"
+                className="pl-9 bg-slate-900 border-slate-800 text-white placeholder:text-slate-500 h-9 focus-visible:ring-blue-600 focus:bg-slate-800 transition-colors w-full"
                 onFocus={() => setShowSuggestions(true)}
               />
             </form>
             {showSuggestions && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                <div className="p-2 text-xs text-slate-500 uppercase font-bold tracking-wider bg-slate-50">Popular Searches</div>
+              <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-lg shadow-xl z-50 overflow-hidden">
+                <div className="p-2 text-xs text-slate-400 uppercase font-bold tracking-wider bg-slate-800">Popular Searches</div>
                 {SUGGESTIONS.map((item) => (
                   <button
                     key={item.symbol}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm text-slate-700 flex justify-between items-center group"
+                    className="w-full text-left px-4 py-2 hover:bg-slate-800 text-sm text-slate-300 flex justify-between items-center group"
                     onClick={() => {
                       onNavigate("charts");
                       setShowSuggestions(false);
                     }}
                   >
                     <span>{item.name}</span>
-                    <span className="font-mono text-slate-400 group-hover:text-blue-600">{item.symbol}</span>
+                    <span className="font-mono text-slate-400 group-hover:text-blue-400">{item.symbol}</span>
                   </button>
                 ))}
               </div>
@@ -106,43 +106,43 @@ export function PublicHeader({ onLogin, onGetStarted, onNavigate, currentView }:
           </div>
           
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" className="text-slate-600 hover:bg-slate-100 hover:text-slate-900" onClick={onLogin}>
+            <Button variant="ghost" className="text-slate-300 hover:bg-slate-800 hover:text-white" onClick={onLogin}>
               Sign In
             </Button>
-            <Button className="bg-blue-600 text-white hover:bg-blue-700" onClick={onGetStarted}>
+            <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white" onClick={onGetStarted}>
               Get Started
             </Button>
           </div>
 
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <SheetTrigger asChild className="md:hidden">
-              <Button variant="ghost" size="icon" className="text-slate-900">
+              <Button variant="ghost" size="icon" className="text-white">
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="bg-white border-slate-200 text-slate-900 w-[300px] sm:w-[400px]">
+            <SheetContent side="right" className="bg-slate-900 border-slate-800 text-white w-[300px] sm:w-[400px]">
               <div className="flex flex-col gap-6 mt-6">
                  <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input 
                     placeholder="Search..." 
-                    className="pl-9 bg-slate-100 border-slate-200 text-slate-900"
+                    className="pl-9 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch(e)}
                   />
                 </div>
                 <nav className="flex flex-col gap-4 text-lg font-medium">
                   {navItems.map((item) => (
                     <SheetClose asChild key={item.id}>
-                      <button onClick={() => onNavigate(item.id)} className="text-left hover:text-blue-600">{item.label}</button>
+                      <button onClick={() => onNavigate(item.id)} className="text-left hover:text-blue-400 text-slate-300">{item.label}</button>
                     </SheetClose>
                   ))}
-                  <SheetClose asChild><button onClick={onGetStarted} className="text-left hover:text-blue-600 font-bold text-blue-600">Trade Now</button></SheetClose>
+                  <SheetClose asChild><button onClick={onGetStarted} className="text-left hover:text-blue-400 font-bold text-blue-400">Trade Now</button></SheetClose>
                 </nav>
                 <div className="flex flex-col gap-3 mt-auto">
-                  <Button variant="outline" className="text-slate-900 border-slate-300 w-full hover:bg-slate-50" onClick={onLogin}>
+                  <Button variant="outline" className="text-white border-slate-700 w-full hover:bg-slate-800" onClick={onLogin}>
                     Sign In
                   </Button>
-                  <Button className="bg-blue-600 text-white hover:bg-blue-700 w-full" onClick={onGetStarted}>
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-full" onClick={onGetStarted}>
                     Get Started
                   </Button>
                 </div>

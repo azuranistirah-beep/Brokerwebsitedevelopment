@@ -3,6 +3,7 @@ import { cors } from "npm:hono/cors";
 import { logger } from "npm:hono/logger";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import * as kv from "./kv_store.tsx";
+import { fetchStockPrice, isStockSymbol } from "./stocks-api.tsx";
 
 const app = new Hono();
 
@@ -327,13 +328,100 @@ app.post("/make-server-20da1dab/admin/assets", async (c) => {
   }
 });
 
-// Get Price
+// Get Price (supports crypto, stocks, and simulated data)
 app.get("/make-server-20da1dab/price", async (c) => {
-  const symbol = c.req.query('symbol');
-  if (!symbol) return c.json({ error: "Symbol required" }, 400);
-  
-  const price = await getMarketPrice(symbol);
-  return c.json({ symbol, price });
+  try {
+    const symbol = c.req.query('symbol');
+    
+    console.log(`📊 [Price API] Request received for symbol: ${symbol}`);
+    
+    if (!symbol) {
+      console.error('❌ [Price API] No symbol provided');
+      return c.json({ error: "Symbol required", code: 'MISSING_SYMBOL' }, 400);
+    }
+    
+    // ✅ Check if it's a crypto symbol - fetch from Binance API
+    const cryptoKeywords = ['BTC', 'ETH', 'BNB', 'XRP', 'ADA', 'DOGE', 'SOL', 'MATIC', 'DOT', 'LINK'];
+    const isCrypto = cryptoKeywords.some(keyword => symbol.toUpperCase().includes(keyword));
+    
+    if (isCrypto) {
+      try {
+        // Map to Binance symbol format
+        let binanceSymbol = symbol.toUpperCase().replace(/[^A-Z]/g, '');
+        if (!binanceSymbol.endsWith('USDT')) {
+          binanceSymbol = binanceSymbol.replace('USD', '') + 'USDT';
+        }
+        
+        console.log(`🔍 [Backend] Fetching crypto price for ${symbol} -> ${binanceSymbol}`);
+        console.log(`🌐 [Backend] Calling Binance API: https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`);
+        
+        const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`);
+        
+        console.log(`📡 [Backend] Binance API response status: ${response.status}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const price = parseFloat(data.price);
+          
+          console.log(`💰 [Backend] Binance price for ${binanceSymbol}: $${price}`);
+          
+          return c.json({ 
+            symbol, 
+            price,
+            source: 'binance',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          const errorText = await response.text();
+          console.warn(`⚠️ [Backend] Binance API returned ${response.status} for ${binanceSymbol}`);
+          console.warn(`⚠️ [Backend] Binance error: ${errorText}`);
+          // Don't return error, try other sources
+        }
+      } catch (error: any) {
+        console.error(`❌ [Backend] Error fetching crypto price from Binance:`);
+        console.error(`   - Error name: ${error.name}`);
+        console.error(`   - Error message: ${error.message}`);
+        console.error(`   - Stack: ${error.stack}`);
+        // Don't return error, try other sources
+      }
+    }
+    
+    // Try to fetch real stock data if it's a stock symbol
+    if (isStockSymbol(symbol)) {
+      console.log(`📈 [Backend] Attempting to fetch stock data for ${symbol}`);
+      const stockQuote = await fetchStockPrice(symbol);
+      if (stockQuote) {
+        console.log(`💰 [Backend] Alpha Vantage price for ${symbol}: $${stockQuote.price}`);
+        return c.json({ 
+          symbol, 
+          price: stockQuote.price,
+          change: stockQuote.change,
+          changePercent: stockQuote.changePercent,
+          source: 'alpha_vantage',
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    // Fallback to simulated price
+    console.log(`🎲 [Backend] Using simulated price for ${symbol}`);
+    const price = await getMarketPrice(symbol);
+    return c.json({ 
+      symbol, 
+      price, 
+      source: 'simulated',
+      timestamp: new Date().toISOString() 
+    });
+  } catch (error: any) {
+    console.error(`❌ [Backend] Fatal error in /price endpoint:`);
+    console.error(`   - Error: ${error.message}`);
+    console.error(`   - Stack: ${error.stack}`);
+    return c.json({ 
+      error: "Internal server error", 
+      message: error.message,
+      code: 'INTERNAL_ERROR' 
+    }, 500);
+  }
 });
 
 // Execute trade

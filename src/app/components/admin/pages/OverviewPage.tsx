@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, FileCheck, ArrowDownToLine, ArrowUpFromLine, TrendingUp, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { Users, FileCheck, ArrowDownToLine, ArrowUpFromLine, TrendingUp, AlertCircle, CheckCircle, Clock, RefreshCw, WifiOff } from "lucide-react";
 import { Card } from "../../ui/card";
 import { Button } from "../../ui/button";
 import { Badge } from "../../ui/badge";
@@ -31,6 +31,8 @@ interface OverviewPageProps {
 
 export function OverviewPage({ onNavigate }: OverviewPageProps) {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const [stats, setStats] = useState<Stats>({
     totalUsers: 0,
     pendingMembers: 0,
@@ -43,78 +45,153 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
 
   useEffect(() => {
     fetchStats();
+
+    // Check online status
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast.success("Connection restored");
+      fetchStats();
+    };
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast.error("No internet connection");
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   const fetchStats = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Fetch all data in parallel
-      const [usersRes, depositsRes, withdrawalsRes, kycRes] = await Promise.all([
-        makeAuthenticatedRequest(
-          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/users`
-        ),
-        makeAuthenticatedRequest(
-          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/deposits`
-        ),
-        makeAuthenticatedRequest(
-          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/withdrawals`
-        ),
-        makeAuthenticatedRequest(
-          `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/kyc`
-        )
-      ]);
+      console.log("📊 Fetching admin dashboard stats...");
 
-      let newStats: Stats = {
-        totalUsers: 0,
-        pendingMembers: 0,
-        pendingKYC: 0,
-        pendingDeposits: 0,
-        pendingWithdrawals: 0,
-        totalDepositsAmount: 0,
-        totalWithdrawalsAmount: 0,
-      };
+      // Set a maximum timeout for the entire fetch operation
+      const fetchTimeout = setTimeout(() => {
+        console.error("❌ Dashboard fetch timeout after 20 seconds");
+        setError("Dashboard is taking too long to load. Please refresh.");
+        setLoading(false);
+      }, 20000);
 
-      if (usersRes.ok) {
-        const data = await usersRes.json();
-        const members = data.users.filter((u: any) => u.role === 'member');
-        newStats.totalUsers = members.length;
-        newStats.pendingMembers = members.filter((u: any) => u.status === 'pending').length;
+      try {
+        // Fetch all data in parallel with individual error handling
+        const [usersRes, depositsRes, withdrawalsRes, kycRes] = await Promise.allSettled([
+          makeAuthenticatedRequest(
+            `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/users`
+          ),
+          makeAuthenticatedRequest(
+            `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/deposits`
+          ),
+          makeAuthenticatedRequest(
+            `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/withdrawals`
+          ),
+          makeAuthenticatedRequest(
+            `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/kyc`
+          )
+        ]);
+
+        clearTimeout(fetchTimeout);
+
+        let newStats: Stats = {
+          totalUsers: 0,
+          pendingMembers: 0,
+          pendingKYC: 0,
+          pendingDeposits: 0,
+          pendingWithdrawals: 0,
+          totalDepositsAmount: 0,
+          totalWithdrawalsAmount: 0,
+        };
+
+        // Process users data
+        if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
+          const data = await usersRes.value.json();
+          const members = data.users.filter((u: any) => u.role === 'member');
+          newStats.totalUsers = members.length;
+          newStats.pendingMembers = members.filter((u: any) => u.status === 'pending').length;
+          console.log("✅ Users data loaded:", newStats.totalUsers, "members");
+        } else {
+          console.warn("⚠️ Failed to load users data");
+        }
+
+        // Process deposits data
+        if (depositsRes.status === 'fulfilled' && depositsRes.value.ok) {
+          const data = await depositsRes.value.json();
+          const deposits = data.deposits || [];
+          newStats.pendingDeposits = deposits.filter((d: any) => d.status === 'pending').length;
+          newStats.totalDepositsAmount = deposits
+            .filter((d: any) => d.status === 'pending')
+            .reduce((sum: number, d: any) => sum + d.amount, 0);
+          console.log("✅ Deposits data loaded:", newStats.pendingDeposits, "pending");
+        } else {
+          console.warn("⚠️ Failed to load deposits data");
+        }
+
+        // Process withdrawals data
+        if (withdrawalsRes.status === 'fulfilled' && withdrawalsRes.value.ok) {
+          const data = await withdrawalsRes.value.json();
+          const withdrawals = data.withdrawals || [];
+          newStats.pendingWithdrawals = withdrawals.filter((w: any) => w.status === 'pending').length;
+          newStats.totalWithdrawalsAmount = withdrawals
+            .filter((w: any) => w.status === 'pending')
+            .reduce((sum: number, w: any) => sum + w.amount, 0);
+          console.log("✅ Withdrawals data loaded:", newStats.pendingWithdrawals, "pending");
+        } else {
+          console.warn("⚠️ Failed to load withdrawals data");
+        }
+
+        // Process KYC data
+        if (kycRes.status === 'fulfilled' && kycRes.value.ok) {
+          const data = await kycRes.value.json();
+          const kyc = data.kyc || [];
+          newStats.pendingKYC = kyc.filter((k: any) => k.status === 'pending').length;
+          console.log("✅ KYC data loaded:", newStats.pendingKYC, "pending");
+        } else {
+          console.warn("⚠️ Failed to load KYC data");
+        }
+
+        setStats(newStats);
+        console.log("✅ Dashboard stats loaded successfully");
+        
+      } catch (innerError: any) {
+        clearTimeout(fetchTimeout);
+        throw innerError;
       }
-
-      if (depositsRes.ok) {
-        const data = await depositsRes.json();
-        const deposits = data.deposits || [];
-        newStats.pendingDeposits = deposits.filter((d: any) => d.status === 'pending').length;
-        newStats.totalDepositsAmount = deposits
-          .filter((d: any) => d.status === 'pending')
-          .reduce((sum: number, d: any) => sum + d.amount, 0);
-      }
-
-      if (withdrawalsRes.ok) {
-        const data = await withdrawalsRes.json();
-        const withdrawals = data.withdrawals || [];
-        newStats.pendingWithdrawals = withdrawals.filter((w: any) => w.status === 'pending').length;
-        newStats.totalWithdrawalsAmount = withdrawals
-          .filter((w: any) => w.status === 'pending')
-          .reduce((sum: number, w: any) => sum + w.amount, 0);
-      }
-
-      if (kycRes.ok) {
-        const data = await kycRes.json();
-        const kyc = data.kyc || [];
-        newStats.pendingKYC = kyc.filter((k: any) => k.status === 'pending').length;
-      }
-
-      setStats(newStats);
     } catch (error: any) {
-      console.error("Error fetching stats:", error);
-      if (!error.message.includes("Authentication failed")) {
-        toast.error("Error loading dashboard stats");
+      console.error("❌ Error fetching stats:", error);
+      
+      // Set user-friendly error message
+      if (error.message?.includes("timeout")) {
+        setError("Connection timeout. Please check your internet and try again.");
+      } else if (error.message?.includes("Authentication failed")) {
+        setError("Session expired. Please login again.");
+      } else if (error.message?.includes("Network")) {
+        setError("Network error. Please check your internet connection.");
+      } else {
+        setError("Failed to load dashboard data. Click refresh to try again.");
+      }
+      
+      // Don't show toast for authentication errors (handled by authHelpers)
+      if (!error.message?.includes("Authentication failed")) {
+        toast.error("Dashboard loading error", {
+          description: error.message,
+        });
       }
     } finally {
+      // ALWAYS set loading to false, no matter what
       setLoading(false);
     }
+  };
+
+  const handleRefresh = () => {
+    console.log("🔄 Manual refresh triggered");
+    fetchStats();
   };
 
   const statsCards = [
@@ -173,14 +250,70 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500"></div>
         <div className="text-white text-xl">Loading dashboard...</div>
+        <div className="text-gray-400 text-sm">Please wait while we fetch your data</div>
+      </div>
+    );
+  }
+
+  // Show error state with option to retry
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-96 space-y-4">
+        <AlertCircle className="h-16 w-16 text-red-400" />
+        <div className="text-white text-2xl font-bold">Failed to Load Dashboard</div>
+        <div className="text-gray-400 text-center max-w-md">{error}</div>
+        <Button
+          onClick={handleRefresh}
+          className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Retry
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {/* Offline Warning Banner */}
+      {isOffline && (
+        <Card className="bg-yellow-900/20 border-yellow-500 p-4">
+          <div className="flex items-center gap-3">
+            <WifiOff className="h-5 w-5 text-yellow-400" />
+            <div className="flex-1">
+              <p className="text-yellow-400 font-medium">You are offline</p>
+              <p className="text-yellow-300/70 text-sm">Some features may not work properly</p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRefresh}
+              className="border-yellow-500 text-yellow-400 hover:bg-yellow-900/30"
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Refresh Button Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-white">Dashboard Overview</h2>
+        <Button
+          onClick={handleRefresh}
+          disabled={loading}
+          variant="outline"
+          size="sm"
+          className="border-slate-700 text-slate-300 hover:bg-slate-800 flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {statsCards.map((stat, index) => {
