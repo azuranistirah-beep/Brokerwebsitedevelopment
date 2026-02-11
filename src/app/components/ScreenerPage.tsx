@@ -51,7 +51,6 @@ export function ScreenerPage() {
     { symbol: "XAGUSD", name: "Silver", price: 24.85, change: 1.12, rating: "Strong Buy", sector: "Precious Metals", type: "Commodity" },
     { symbol: "WTIUSD", name: "Crude Oil WTI", price: 78.45, change: -0.45, rating: "Hold", sector: "Energy", type: "Commodity" },
     { symbol: "BRUSD", name: "Brent Crude Oil", price: 82.30, change: -0.23, rating: "Hold", sector: "Energy", type: "Commodity" },
-    { symbol: "NATGAS", name: "Natural Gas", price: 2.65, change: 2.34, rating: "Buy", sector: "Energy", type: "Commodity" },
   ];
 
   return (

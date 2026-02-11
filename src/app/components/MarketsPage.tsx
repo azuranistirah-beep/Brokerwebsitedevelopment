@@ -542,19 +542,19 @@ export function MarketsPage() {
                     size="icon"
                     onClick={handleAmountDecrease}
                     disabled={INVESTMENT_AMOUNTS.indexOf(selectedAmount) === 0}
-                    className="border-slate-700 hover:bg-slate-800 text-white"
+                    className="border-2 border-slate-700 bg-slate-800 hover:bg-slate-700 text-white"
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <div className="flex-1 bg-slate-800 border-2 border-blue-500 rounded-lg px-4 py-3 text-center">
-                    <div className="text-2xl font-bold text-white">${selectedAmount.toLocaleString()}</div>
+                  <div className="flex-1 bg-slate-950 border-2 border-blue-500/50 rounded-lg px-4 py-3 text-center">
+                    <div className="text-2xl font-bold text-blue-300">${selectedAmount.toLocaleString()}</div>
                   </div>
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={handleAmountIncrease}
                     disabled={INVESTMENT_AMOUNTS.indexOf(selectedAmount) === INVESTMENT_AMOUNTS.length - 1}
-                    className="border-slate-700 hover:bg-slate-800 text-white"
+                    className="border-2 border-slate-700 bg-slate-800 hover:bg-slate-700 text-white"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -575,8 +575,8 @@ export function MarketsPage() {
                       size="sm"
                       onClick={() => setSelectedDuration(duration.value)}
                       className={selectedDuration === duration.value 
-                        ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs" 
-                        : "border-slate-700 text-slate-300 hover:bg-slate-800 text-xs"
+                        ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-xs border-0" 
+                        : "border-2 border-slate-700 bg-slate-800/50 text-slate-300 hover:bg-slate-700 hover:border-slate-600 hover:text-white text-xs"
                       }
                     >
                       {duration.label}
@@ -636,8 +636,9 @@ export function MarketsPage() {
 
               <TabsContent value="positions" className="p-6">
                 {positions.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400">
-                    No open positions. Start trading to see your positions here.
+                  <div className="text-center py-12">
+                    <div className="text-slate-300 text-lg font-medium mb-2">No open positions</div>
+                    <div className="text-slate-500 text-sm">Start trading to see your positions here.</div>
                   </div>
                 ) : (
                   <div className="space-y-4">

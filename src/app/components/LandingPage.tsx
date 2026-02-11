@@ -2,85 +2,11 @@ import { Button } from "./ui/button";
 import { TrendingUp, Shield, CheckCircle2, ArrowRight, Gift, Sparkles, Play } from "lucide-react";
 import { LiveMarketOverview } from "./LiveMarketOverview";
 import { PopularAssets } from "./PopularAssets";
-import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { TickerTape } from "./TickerTape";
-import { useEffect, useState } from "react";
-import bgImage from "figma:asset/f0d81cb854edb61c0a57900420621a0ae1ce5100.png";
 
 interface LandingPageProps {
   onGetStarted: () => void;
   onNavigate: (view: string) => void;
-}
-
-// Mini Live Markets Widget Component
-function LiveMarketsWidget({ onViewMarkets }: { onViewMarkets: () => void }) {
-  const [markets, setMarkets] = useState<any[]>([
-    { symbol: 'USDC', name: 'USDCUSDT', price: 1.0006, change: 0.01, icon: '🔵' },
-    { symbol: 'BTC', name: 'BTCUSDT', price: 66236.01, change: -4.83, icon: '₿' },
-    { symbol: 'ETH', name: 'ETHUSDT', price: 1918.21, change: -5.49, icon: 'Ξ' },
-    { symbol: 'SOL', name: 'SOLUSDT', price: 78.65, change: 6.62, icon: '◎' },
-    { symbol: 'XRP', name: 'XRPUSDT', price: 1.3622, change: -8.25, icon: '✕' },
-  ]);
-
-  // Simulating real-time price updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setMarkets(prev => prev.map(m => ({
-        ...m,
-        price: m.price * (1 + (Math.random() - 0.5) * 0.001),
-        change: m.change + (Math.random() - 0.5) * 0.1,
-      })));
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 w-full max-w-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h3 className="text-white font-bold text-lg mb-1">Live Markets</h3>
-          <p className="text-slate-400 text-xs">Top performing assets</p>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-          </span>
-          <span className="text-green-400 text-xs font-semibold">Live</span>
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {markets.map((market) => (
-          <div key={market.symbol} className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-slate-800/50 transition-colors cursor-pointer group">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
-                {market.icon}
-              </div>
-              <div>
-                <div className="text-white font-bold text-sm">{market.symbol}</div>
-                <div className="text-slate-500 text-xs">{market.name}</div>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-white font-bold text-sm">{market.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-              <div className={`text-xs font-semibold ${market.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                {market.change >= 0 ? '+' : ''}{market.change.toFixed(2)}%
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <button 
-        onClick={onViewMarkets}
-        className="w-full mt-4 py-3 text-blue-400 hover:text-blue-300 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-slate-800/50 rounded-xl transition-all group"
-      >
-        View All Markets 
-        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-      </button>
-    </div>
-  );
 }
 
 export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
@@ -99,10 +25,10 @@ export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
           <div className="absolute -bottom-1/2 -left-1/4 w-[800px] h-[800px] bg-purple-600/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
         </div>
 
-        <div className="container mx-auto px-4 py-20 relative z-10">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left Content */}
-            <div className="text-left">
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-4xl mx-auto">
+            {/* Content - Centered */}
+            <div className="text-center">
               {/* Badge */}
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600/10 border border-blue-500/20 text-blue-400 text-sm font-semibold mb-8 backdrop-blur-sm">
                 <Sparkles className="w-4 h-4" />
@@ -118,21 +44,21 @@ export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
               </h1>
 
               {/* Subtitle */}
-              <p className="text-xl text-slate-400 mb-6 leading-relaxed max-w-xl">
+              <p className="text-xl text-slate-400 mb-6 leading-relaxed max-w-2xl mx-auto">
                 Advanced trading tools, lightning-fast execution, and unmatched security. Join millions of traders worldwide.
               </p>
 
-              {/* Bonus Deposit Info - Compact Badge */}
-              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r from-yellow-400/10 to-orange-400/10 border border-yellow-500/20 mb-8 backdrop-blur-sm">
-                <Gift className="w-5 h-5 text-yellow-400" />
-                <div>
-                  <div className="text-yellow-400 font-bold text-sm">100% Deposit Bonus</div>
-                  <div className="text-slate-400 text-xs">Deposit $1,000 and trade with $2,000 instantly</div>
+              {/* Bonus Deposit Info - Compact Badge with Better Colors */}
+              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-slate-800/50 border border-blue-500/30 mb-8 backdrop-blur-sm">
+                <Gift className="w-5 h-5 text-blue-400" />
+                <div className="text-left">
+                  <div className="text-blue-300 font-bold text-sm">100% Deposit Bonus</div>
+                  <div className="text-slate-300 text-xs">Deposit $1,000 and trade with $2,000 instantly</div>
                 </div>
               </div>
 
               {/* Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 mb-12">
+              <div className="flex flex-col sm:flex-row gap-4 mb-12 justify-center">
                 <Button 
                   size="lg" 
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-8 h-14 rounded-xl transition-all hover:scale-105 shadow-xl shadow-blue-600/20" 
@@ -153,7 +79,7 @@ export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
               </div>
 
               {/* Feature Badges */}
-              <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-wrap items-center gap-6 justify-center">
                 <div className="flex items-center gap-2 text-slate-400">
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
                   <span className="text-sm font-medium">Secure Trading</span>
@@ -167,11 +93,6 @@ export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
                   <span className="text-sm font-medium">24/7 Support</span>
                 </div>
               </div>
-            </div>
-
-            {/* Right - Live Markets Widget */}
-            <div className="flex justify-center lg:justify-end">
-              <LiveMarketsWidget onViewMarkets={() => onNavigate("charts")} />
             </div>
           </div>
         </div>
@@ -225,7 +146,11 @@ export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
                 <h2 className="text-3xl font-bold text-white mb-2">Live Market Overview</h2>
                 <p className="text-slate-400">Real-time prices from global exchanges</p>
               </div>
-              <Button variant="outline" onClick={() => onNavigate("charts")} className="hidden md:flex border-slate-700 text-white hover:bg-slate-800">
+              <Button 
+                variant="outline" 
+                onClick={() => onNavigate("charts")} 
+                className="hidden md:flex border-2 border-blue-600/50 bg-blue-600/10 text-blue-300 hover:bg-blue-600/20 hover:border-blue-500 hover:text-blue-200 font-semibold"
+              >
                 View Full Chart <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -233,7 +158,11 @@ export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
             <LiveMarketOverview />
             
             <div className="mt-8 text-center md:hidden">
-              <Button variant="outline" className="w-full border-slate-700 text-white hover:bg-slate-800" onClick={() => onNavigate("charts")}>
+              <Button 
+                variant="outline" 
+                className="w-full border-2 border-blue-600/50 bg-blue-600/10 text-blue-300 hover:bg-blue-600/20 hover:border-blue-500 hover:text-blue-200 font-semibold" 
+                onClick={() => onNavigate("charts")}
+              >
                 View Full Chart
               </Button>
             </div>
@@ -244,7 +173,11 @@ export function LandingPage({ onGetStarted, onNavigate }: LandingPageProps) {
       <section id="markets" className="bg-slate-950">
         <PopularAssets />
         <div className="text-center pb-24 bg-slate-950">
-           <Button variant="outline" className="border-slate-700 text-white hover:bg-slate-800 hover:border-blue-600 hover:text-blue-400 min-w-[200px]" onClick={() => onNavigate("markets")}>
+           <Button 
+             variant="outline" 
+             className="border-2 border-blue-600/50 bg-blue-600/10 text-blue-300 hover:bg-blue-600/20 hover:border-blue-500 hover:text-blue-200 min-w-[200px] font-semibold" 
+             onClick={() => onNavigate("markets")}
+           >
              View All Markets
            </Button>
         </div>

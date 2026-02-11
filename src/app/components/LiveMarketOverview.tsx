@@ -73,7 +73,6 @@ const ALL_ASSETS: MarketItem[] = [
   { symbol: "OANDA:XAGUSD", name: "Silver", price: 24.85, change: 1.12, type: "commodities", basePrice: 24.85 },
   { symbol: "TVC:USOIL", name: "Crude Oil WTI", price: 78.45, change: -0.45, type: "commodities", basePrice: 78.45 },
   { symbol: "TVC:UKOIL", name: "Brent Oil", price: 82.30, change: -0.23, type: "commodities", basePrice: 82.30 },
-  { symbol: "NYMEX:NG1!", name: "Natural Gas", price: 2.65, change: 2.34, type: "commodities", basePrice: 2.65 },
 ];
 
 export function LiveMarketOverview() {
@@ -130,7 +129,7 @@ export function LiveMarketOverview() {
       unsubscribeFunctions.push(unsubscribe);
     });
     
-    console.log(`✅ [LiveMarketOverview] Subscribed to ${cryptoAssets.length} crypto symbols`);
+    console.log(`��� [LiveMarketOverview] Subscribed to ${cryptoAssets.length} crypto symbols`);
     
     // Cleanup: Unsubscribe when component unmounts
     return () => {

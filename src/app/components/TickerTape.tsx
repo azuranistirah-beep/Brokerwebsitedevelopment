@@ -81,10 +81,6 @@ export function TickerTape({ colorTheme = "light" }: TickerTapeProps) {
         {
           description: "Silver",
           proName: "OANDA:XAGUSD"
-        },
-        {
-          description: "Natural Gas",
-          proName: "NYMEX:NG1!"
         }
       ],
       showSymbolLogo: true,

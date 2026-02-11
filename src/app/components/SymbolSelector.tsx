@@ -131,32 +131,32 @@ export function SymbolSelector({ selectedSymbol, onSymbolChange }: SymbolSelecto
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* Selected Symbol Display - Clickable */}
+      {/* Selected Symbol Display - Clickable - DARK THEME */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full bg-white border-2 border-slate-300 hover:border-blue-500 rounded-lg px-4 py-3 flex items-center justify-between transition-colors"
+        className="w-full bg-slate-900 border-2 border-slate-700 hover:border-blue-500 rounded-lg px-4 py-3 flex items-center justify-between transition-colors"
       >
         <div className="text-left">
-          <div className="text-xs text-slate-500 font-medium mb-1">Trading Symbol</div>
-          <div className="font-bold text-slate-900">{selectedSymbolData?.name || "Select Asset"}</div>
-          <div className="text-xs text-slate-600 mt-1">{selectedSymbol}</div>
+          <div className="text-xs text-slate-400 font-medium mb-1">Trading Symbol</div>
+          <div className="font-bold text-white">{selectedSymbolData?.name || "Select Asset"}</div>
+          <div className="text-xs text-slate-500 mt-1">{selectedSymbol}</div>
         </div>
-        <Search className="h-5 w-5 text-slate-400" />
+        <Search className="h-5 w-5 text-slate-500" />
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - DARK THEME */}
       {isOpen && (
-        <Card className="absolute top-full mt-2 w-full max-w-md z-50 shadow-xl border-2 border-slate-300 max-h-[500px] overflow-hidden flex flex-col">
+        <Card className="absolute top-full mt-2 w-full max-w-md z-50 shadow-xl border-2 border-slate-700 bg-slate-900 max-h-[500px] overflow-hidden flex flex-col">
           {/* Search Input */}
-          <div className="p-3 border-b border-slate-200 bg-slate-50">
+          <div className="p-3 border-b border-slate-700 bg-slate-800">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
               <input
                 type="text"
                 placeholder="Search symbols, names, or categories..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
+                className="w-full pl-10 pr-4 py-2 border-2 border-slate-700 bg-slate-900 text-white placeholder-slate-500 rounded-lg focus:outline-none focus:border-blue-500 text-sm"
                 autoFocus
               />
             </div>
@@ -170,19 +170,19 @@ export function SymbolSelector({ selectedSymbol, onSymbolChange }: SymbolSelecto
               </div>
             ) : (
               Object.entries(groupedSymbols).map(([category, symbols]) => (
-                <div key={category} className="border-b border-slate-100 last:border-b-0">
-                  <div className="px-3 py-2 bg-slate-50 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                <div key={category} className="border-b border-slate-800 last:border-b-0">
+                  <div className="px-3 py-2 bg-slate-800 text-xs font-bold text-slate-400 uppercase tracking-wide">
                     {category}
                   </div>
                   {symbols.map((item) => (
                     <button
                       key={item.symbol}
                       onClick={() => handleSelect(item.symbol)}
-                      className={`w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors border-b border-slate-50 ${
-                        selectedSymbol === item.symbol ? "bg-blue-100" : ""
+                      className={`w-full px-4 py-3 text-left hover:bg-slate-800 transition-colors border-b border-slate-800 ${
+                        selectedSymbol === item.symbol ? "bg-blue-600/20 border-l-4 border-l-blue-500" : ""
                       }`}
                     >
-                      <div className="font-semibold text-slate-900 text-sm">{item.name}</div>
+                      <div className="font-semibold text-white text-sm">{item.name}</div>
                       <div className="text-xs text-slate-500 mt-1">{item.symbol}</div>
                     </button>
                   ))}
