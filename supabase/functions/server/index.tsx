@@ -333,10 +333,7 @@ app.get("/make-server-20da1dab/price", async (c) => {
   try {
     const symbol = c.req.query('symbol');
     
-    console.log(`📊 [Price API] Request received for symbol: ${symbol}`);
-    
     if (!symbol) {
-      console.error('❌ [Price API] No symbol provided');
       return c.json({ error: "Symbol required", code: 'MISSING_SYMBOL' }, 400);
     }
     
@@ -352,18 +349,19 @@ app.get("/make-server-20da1dab/price", async (c) => {
           binanceSymbol = binanceSymbol.replace('USD', '') + 'USDT';
         }
         
-        console.log(`🔍 [Backend] Fetching crypto price for ${symbol} -> ${binanceSymbol}`);
-        console.log(`🌐 [Backend] Calling Binance API: https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`);
+        // ✅ Add timeout to prevent slow responses
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1000); // 1 second timeout
         
-        const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`);
+        const response = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${binanceSymbol}`, {
+          signal: controller.signal
+        });
         
-        console.log(`📡 [Backend] Binance API response status: ${response.status}`);
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const data = await response.json();
           const price = parseFloat(data.price);
-          
-          console.log(`💰 [Backend] Binance price for ${binanceSymbol}: $${price}`);
           
           return c.json({ 
             symbol, 
@@ -371,27 +369,20 @@ app.get("/make-server-20da1dab/price", async (c) => {
             source: 'binance',
             timestamp: new Date().toISOString()
           });
-        } else {
-          const errorText = await response.text();
-          console.warn(`⚠️ [Backend] Binance API returned ${response.status} for ${binanceSymbol}`);
-          console.warn(`⚠️ [Backend] Binance error: ${errorText}`);
-          // Don't return error, try other sources
         }
+        // ✅ Silent fallback - no logging for expected failures
       } catch (error: any) {
-        console.error(`❌ [Backend] Error fetching crypto price from Binance:`);
-        console.error(`   - Error name: ${error.name}`);
-        console.error(`   - Error message: ${error.message}`);
-        console.error(`   - Stack: ${error.stack}`);
-        // Don't return error, try other sources
+        // ✅ Silent fallback - timeout is expected, only log unexpected errors
+        if (error.name !== 'AbortError') {
+          console.log(`⚠️ [Backend] Binance error for ${symbol}: ${error.message}`);
+        }
       }
     }
     
     // Try to fetch real stock data if it's a stock symbol
     if (isStockSymbol(symbol)) {
-      console.log(`📈 [Backend] Attempting to fetch stock data for ${symbol}`);
       const stockQuote = await fetchStockPrice(symbol);
       if (stockQuote) {
-        console.log(`💰 [Backend] Alpha Vantage price for ${symbol}: $${stockQuote.price}`);
         return c.json({ 
           symbol, 
           price: stockQuote.price,
@@ -404,7 +395,6 @@ app.get("/make-server-20da1dab/price", async (c) => {
     }
     
     // Fallback to simulated price
-    console.log(`🎲 [Backend] Using simulated price for ${symbol}`);
     const price = await getMarketPrice(symbol);
     return c.json({ 
       symbol, 
@@ -413,9 +403,7 @@ app.get("/make-server-20da1dab/price", async (c) => {
       timestamp: new Date().toISOString() 
     });
   } catch (error: any) {
-    console.error(`❌ [Backend] Fatal error in /price endpoint:`);
-    console.error(`   - Error: ${error.message}`);
-    console.error(`   - Stack: ${error.stack}`);
+    console.error(`❌ [Backend] Fatal error in /price endpoint: ${error.message}`);
     return c.json({ 
       error: "Internal server error", 
       message: error.message,

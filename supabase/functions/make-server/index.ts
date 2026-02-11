@@ -39,26 +39,42 @@ app.use(
 // Stores last price and time to create consistent charts/movements
 async function getMarketPrice(symbol: string): Promise<number> {
   const cacheKey = `price:${symbol}`;
-  const cached = await kv.get(cacheKey);
   
-  const now = Date.now();
-  
-  if (cached && (now - cached.timestamp < 1000)) {
-    // Return cached if less than 1s old
-    return cached.price;
-  }
+  try {
+    // ✅ FAST: Use Promise.race to ensure KV doesn't block forever
+    const cached = await Promise.race([
+      kv.get(cacheKey),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 500)) // 500ms max for KV lookup
+    ]);
+    
+    const now = Date.now();
+    
+    if (cached && (now - cached.timestamp < 1000)) {
+      // Return cached if less than 1s old
+      return cached.price;
+    }
 
-  let currentPrice = cached ? cached.price : getBasePrice(symbol);
-  
-  // Random Walk
-  const volatility = getVolatility(symbol);
-  const change = (Math.random() - 0.5) * volatility * currentPrice;
-  const newPrice = currentPrice + change;
-  
-  // Save to KV
-  await kv.set(cacheKey, { price: newPrice, timestamp: now });
-  
-  return Number(newPrice.toFixed(symbol.includes("USD") && !symbol.includes("BTC") && !symbol.includes("ETH") ? 5 : 2));
+    let currentPrice = cached ? cached.price : getBasePrice(symbol);
+    
+    // Random Walk
+    const volatility = getVolatility(symbol);
+    const change = (Math.random() - 0.5) * volatility * currentPrice;
+    const newPrice = currentPrice + change;
+    
+    // ✅ FAST: Fire-and-forget KV save (don't wait for it)
+    kv.set(cacheKey, { price: newPrice, timestamp: now }).catch(() => {
+      // Ignore KV errors - price generation still works
+    });
+    
+    return Number(newPrice.toFixed(symbol.includes("USD") && !symbol.includes("BTC") && !symbol.includes("ETH") ? 5 : 2));
+  } catch (error) {
+    // ✅ FALLBACK: If KV fails entirely, just return base price with random walk
+    console.warn(`⚠️ [getMarketPrice] KV error for ${symbol}, using fallback`);
+    const basePrice = getBasePrice(symbol);
+    const volatility = getVolatility(symbol);
+    const change = (Math.random() - 0.5) * volatility * basePrice;
+    return Number((basePrice + change).toFixed(symbol.includes("USD") && !symbol.includes("BTC") && !symbol.includes("ETH") ? 5 : 2));
+  }
 }
 
 function getBasePrice(symbol: string): number {
@@ -274,20 +290,20 @@ app.get("/make-server-20da1dab/price", async (c) => {
     
     console.log(`💰 [Price API] Fetching price for: ${symbol}`);
     
-    // Try to get price with timeout protection
+    // ✅ FAST: Try to get price with 1 second timeout (reduced from 3 seconds)
     const price = await Promise.race([
       getMarketPrice(symbol),
       new Promise<number>((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 3000)
+        setTimeout(() => reject(new Error('Timeout')), 1000) // 1 second only!
       )
     ]);
     
     console.log(`✅ [Price API] ${symbol}: $${price}`);
     return c.json({ symbol, price, source: 'backend', timestamp: Date.now() });
   } catch (error: any) {
-    console.error(`❌ [Price API Error] ${c.req.query('symbol')}:`, error.message);
+    console.warn(`⚠️ [Price API Timeout] ${c.req.query('symbol')}: Using fallback price`);
     
-    // Fallback to base price if error
+    // ✅ FAST: Fallback to base price immediately if timeout
     const symbol = c.req.query('symbol') || '';
     const fallbackPrice = getBasePrice(symbol);
     return c.json({ symbol, price: fallbackPrice, source: 'fallback', timestamp: Date.now() });

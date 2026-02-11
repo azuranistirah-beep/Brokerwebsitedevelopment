@@ -30,6 +30,8 @@ class RealTimeWebSocketService {
   private isPolling: boolean = false;
   private backendConnectionTested: boolean = false;
   private backendConnected: boolean = false;
+  private lastTimeoutLog: Map<string, number> = new Map(); // ✅ Track timeout logs
+  private lastFailureLog: Map<string, number> = new Map(); // ✅ Track failure logs
 
   constructor() {
     console.log('🌐 [Real-Time Service] Initializing with backend proxy...');
@@ -160,10 +162,8 @@ class RealTimeWebSocketService {
             try {
               const backendUrl = `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/price?symbol=${cleanSymbol}`;
               
-              console.log(`🔄 [Polling] Fetching ${cleanSymbol} from backend...`);
-              
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout (reduced from 5)
+              const timeoutId = setTimeout(() => controller.abort(), 1500); // ✅ 1.5 seconds (super fast!)
               
               const response = await fetch(backendUrl, {
                 headers: {
@@ -190,38 +190,35 @@ class RealTimeWebSocketService {
                 console.error(`   Response: ${errorText}`);
               }
             } catch (backendError: any) {
+              // ✅ Silently fallback - don't spam console
               if (backendError.name === 'AbortError') {
-                console.error(`⏱️ [Backend Timeout] ${cleanSymbol}: Request took too long`);
+                // Timeout is expected sometimes, use simulated price silently
+                const lastTimeout = this.lastTimeoutLog.get(cleanSymbol) || 0;
+                if (Date.now() - lastTimeout > 30000) { // Log every 30 seconds max
+                  console.log(`🕒 [Timeout] ${cleanSymbol}: Backend request timed out`);
+                  this.lastTimeoutLog.set(cleanSymbol, Date.now());
+                }
               } else {
-                console.error(`❌ [Backend Failed] ${cleanSymbol}:`, backendError.message);
+                // Only log non-timeout errors
+                const lastFailure = this.lastFailureLog.get(cleanSymbol) || 0;
+                if (Date.now() - lastFailure > 30000) { // Log every 30 seconds max
+                  console.warn(`⚠️ [Backend Failed] ${cleanSymbol}:`, backendError.message);
+                  this.lastFailureLog.set(cleanSymbol, Date.now());
+                }
               }
             }
           }
           
-          // Strategy 2: Fallback to direct Binance API if backend failed (may hit CORS)
-          if (!price || price <= 0) {
-            try {
-              console.log(`🔄 [Fallback] Trying direct Binance API for ${symbolUpper}...`);
-              
-              const binanceUrl = `https://api.binance.com/api/v3/ticker/price?symbol=${symbolUpper}`;
-              const response = await fetch(binanceUrl);
-              
-              if (response.ok) {
-                const data = await response.json();
-                price = parseFloat(data.price);
-                source = 'binance_direct';
-                console.log(`✅ [Binance Direct] ${symbolUpper}: $${price}`);
-              }
-            } catch (binanceError: any) {
-              console.warn(`⚠️ [Binance Direct Failed] ${symbolUpper}:`, binanceError.message);
-            }
-          }
-          
-          // Strategy 3: Use simulated price as last resort
+          // Strategy 2: Use simulated price immediately (skip Binance Direct - always fails CORS)
           if (!price || price <= 0) {
             price = this.getSimulatedPrice(cleanSymbol);
             source = 'simulated';
-            console.log(`🎲 [Simulated] ${cleanSymbol}: $${price}`);
+            // Only log simulated fallback occasionally to reduce console spam
+            const lastSimulatedLog = (this as any)[`lastSimLog_${cleanSymbol}`] || 0;
+            if (Date.now() - lastSimulatedLog > 30000) { // Log every 30 seconds max
+              console.log(`🎲 [Simulated] ${cleanSymbol}: $${price}`);
+              (this as any)[`lastSimLog_${cleanSymbol}`] = Date.now();
+            }
           }
           
           // Update price and notify subscribers

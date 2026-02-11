@@ -26,16 +26,44 @@ console.log("✅ App.tsx loaded successfully");
 
 // ✅ Suppress TradingView iframe warnings (safe to ignore)
 const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+const originalConsoleLog = console.log;
+
 console.error = (...args) => {
   // Ignore TradingView iframe CORS warnings
+  const message = args[0]?.toString() || '';
   if (
-    args[0]?.toString().includes('iframe') ||
-    args[0]?.toString().includes('contentWindow') ||
-    args[0]?.toString().includes('Cannot listen to the event')
+    message.includes('iframe') ||
+    message.includes('contentWindow') ||
+    message.includes('Cannot listen to the event')
   ) {
     return; // Suppress these specific warnings
   }
   originalConsoleError(...args);
+};
+
+console.warn = (...args) => {
+  // Suppress known warnings that are expected/harmless
+  const message = args[0]?.toString() || '';
+  if (
+    message.includes('Binance Direct Failed') ||
+    message.includes('CORS')
+  ) {
+    return; // Suppress these specific warnings
+  }
+  originalConsoleWarn(...args);
+};
+
+console.log = (...args) => {
+  // Suppress timeout messages (they are already throttled, but suppress completely)
+  const message = args[0]?.toString() || '';
+  if (
+    message.includes('Backend Timeout') ||
+    message.includes('Request took too long')
+  ) {
+    return; // Suppress these messages
+  }
+  originalConsoleLog(...args);
 };
 
 type ViewType = "landing" | "markets" | "charts" | "screener" | "news" | "member" | "admin" | "admin-setup" | "real-trading" | "auth-diagnostic";

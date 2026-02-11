@@ -1,14 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { Card, CardContent } from "./ui/card";
+import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { ArrowUp, ArrowDown, TrendingUp, TrendingDown, Activity, DollarSign, Target, Trophy, Plus, Minus } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, DollarSign, Target, Trophy, Plus, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { PositionCountdown } from "./PositionCountdown";
 import { realTimeWebSocket } from "../lib/realTimeWebSocket";
-import { MiniChart } from "./MiniChart";
-import { SymbolSelector, getAllSymbols } from "./SymbolSelector";
+import { SymbolSelector } from "./SymbolSelector";
 import { TickerTape } from "./TickerTape";
 import { TradingChart } from "./TradingChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
@@ -166,18 +164,10 @@ export function MarketsPage() {
     totalProfit: 0,
     openPositions: 0
   });
-  const [popularAssets, setPopularAssets] = useState<string[]>([]);
   
   const marketStatus = getMarketStatus(selectedSymbol);
   const payoutPercentage = 95;
   const potentialProfit = (selectedAmount * payoutPercentage) / 100;
-  
-  // Initialize popular assets
-  useEffect(() => {
-    const allSymbols = getAllSymbols();
-    const shuffled = [...allSymbols].sort(() => Math.random() - 0.5);
-    setPopularAssets(shuffled.slice(0, 12));
-  }, []);
 
   // ✅ Subscribe to Real-Time WebSocket for price updates
   useEffect(() => {
@@ -711,29 +701,6 @@ export function MarketsPage() {
               </TabsContent>
             </Tabs>
           </Card>
-
-          {/* ✅ Popular Assets Section - Real-time mini charts - MOVED TO BOTTOM */}
-          <div className="mt-6">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-white mb-2">Popular Assets</h2>
-              <p className="text-slate-400 text-sm">Track and trade the most popular stocks and cryptocurrencies</p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {popularAssets.map((asset) => (
-                <Card 
-                  key={asset} 
-                  className={`bg-slate-900 p-3 h-[160px] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer ${
-                    selectedSymbol === asset 
-                      ? 'border-2 border-blue-500 ring-2 ring-blue-600/20' 
-                      : 'border border-slate-800 hover:border-blue-600'
-                  }`}
-                  onClick={() => setSelectedSymbol(asset)}
-                >
-                  <MiniChart symbol={asset} />
-                </Card>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     </div>
