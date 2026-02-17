@@ -96,7 +96,8 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
             <span className="text-xl font-bold text-white tracking-tight">Investoft</span>
           </Link>
           
-          <nav className="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-400">
+          {/* ✅ Desktop Navigation - Only show on large screens (≥1280px) */}
+          <nav className="hidden xl:flex items-center gap-6 text-sm font-medium text-slate-400">
             {navItems.map((item) => (
               <Link
                 key={item.path}
@@ -119,7 +120,8 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
         </div>
 
         <div className="flex items-center gap-4 flex-1 justify-end">
-          <div className="hidden md:flex relative max-w-xs w-full" ref={searchRef}>
+          {/* ✅ Search - Hide on mobile, show on tablet+ */}
+          <div className="hidden sm:flex relative max-w-xs w-full" ref={searchRef}>
             <form onSubmit={handleSearch} className="w-full relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input 
@@ -199,8 +201,9 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
             )}
           </div>
 
+          {/* ✅ Mobile/Tablet Burger Menu - Show on ALL screens <1280px (including iPad/tablet) */}
           <Sheet open={isMenuOpen} onOpenChange={setIsMenuOpen}>
-            <SheetTrigger asChild className="md:hidden">
+            <SheetTrigger asChild className="xl:hidden">
               <Button variant="ghost" size="icon" className="text-white">
                 <Menu className="h-6 w-6" />
               </Button>

@@ -63,48 +63,51 @@ export function ScreenerPage() {
                </div>
             </div>
 
+            {/* ✅ Mobile-friendly table with horizontal scroll */}
             <Card className="border-slate-800 shadow-sm bg-slate-900 overflow-hidden">
-              <Table>
-                <TableHeader className="bg-slate-800/50">
-                  <TableRow className="border-b border-slate-700">
-                    <TableHead className="text-slate-200 font-bold">Symbol</TableHead>
-                    <TableHead className="text-slate-200 font-bold">Name</TableHead>
-                    <TableHead className="text-slate-200 font-bold">Type</TableHead>
-                    <TableHead className="text-slate-200 font-bold text-right">Price</TableHead>
-                    <TableHead className="text-slate-200 font-bold text-right">Change %</TableHead>
-                    <TableHead className="text-slate-200 font-bold">Sector</TableHead>
-                    <TableHead className="text-slate-200 font-bold">Analyst Rating</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {screenerData.map((stock) => (
-                    <TableRow key={stock.symbol} className="hover:bg-slate-800/50 border-b border-slate-800 last:border-0">
-                      <TableCell className="font-medium text-white">{stock.symbol}</TableCell>
-                      <TableCell className="text-slate-300">{stock.name}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">
-                          {stock.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-white">${stock.price.toLocaleString()}</TableCell>
-                      <TableCell className={`text-right font-medium ${stock.change >= 0 ? "text-green-400" : "text-red-400"}`}>
-                        {stock.change > 0 ? "+" : ""}{stock.change}%
-                      </TableCell>
-                      <TableCell className="text-slate-300">{stock.sector}</TableCell>
-                      <TableCell>
-                        <Badge variant={stock.rating.includes("Buy") ? "default" : "secondary"} className={
-                          stock.rating === "Strong Buy" ? "bg-green-600 hover:bg-green-700 text-white" :
-                          stock.rating === "Buy" ? "bg-blue-600 hover:bg-blue-700 text-white" :
-                          stock.rating === "Sell" ? "bg-red-600 hover:bg-red-700 text-white" :
-                          "bg-yellow-500 hover:bg-yellow-600 text-white"
-                        }>
-                          {stock.rating}
-                        </Badge>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table className="min-w-full">
+                  <TableHeader className="bg-slate-800/50">
+                    <TableRow className="border-b border-slate-700">
+                      <TableHead className="text-slate-200 font-bold whitespace-nowrap">Symbol</TableHead>
+                      <TableHead className="text-slate-200 font-bold whitespace-nowrap">Name</TableHead>
+                      <TableHead className="text-slate-200 font-bold whitespace-nowrap">Type</TableHead>
+                      <TableHead className="text-slate-200 font-bold text-right whitespace-nowrap">Price</TableHead>
+                      <TableHead className="text-slate-200 font-bold text-right whitespace-nowrap">Change %</TableHead>
+                      <TableHead className="text-slate-200 font-bold whitespace-nowrap">Sector</TableHead>
+                      <TableHead className="text-slate-200 font-bold whitespace-nowrap">Analyst Rating</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {screenerData.map((stock) => (
+                      <TableRow key={stock.symbol} className="hover:bg-slate-800/50 border-b border-slate-800 last:border-0">
+                        <TableCell className="font-medium text-white">{stock.symbol}</TableCell>
+                        <TableCell className="text-slate-300">{stock.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">
+                            {stock.type}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-white">${stock.price.toLocaleString()}</TableCell>
+                        <TableCell className={`text-right font-medium ${stock.change >= 0 ? "text-green-400" : "text-red-400"}`}>
+                          {stock.change > 0 ? "+" : ""}{stock.change}%
+                        </TableCell>
+                        <TableCell className="text-slate-300">{stock.sector}</TableCell>
+                        <TableCell>
+                          <Badge variant={stock.rating.includes("Buy") ? "default" : "secondary"} className={
+                            stock.rating === "Strong Buy" ? "bg-green-600 hover:bg-green-700 text-white" :
+                            stock.rating === "Buy" ? "bg-blue-600 hover:bg-blue-700 text-white" :
+                            stock.rating === "Sell" ? "bg-red-600 hover:bg-red-700 text-white" :
+                            "bg-yellow-500 hover:bg-yellow-600 text-white"
+                          }>
+                            {stock.rating}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </Card>
           </div>
         </div>

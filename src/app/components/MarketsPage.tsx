@@ -455,12 +455,12 @@ export function MarketsPage() {
       <div className="pt-4">
         <div className="container mx-auto px-4">
           {/* Demo Account Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div>
               <h1 className="text-2xl font-bold text-white">Markets</h1>
               <p className="text-slate-400 text-sm">Practice trading with virtual funds</p>
             </div>
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl shadow-lg">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-xl shadow-lg w-full sm:w-auto">
               <div className="text-xs opacity-90 mb-1">Demo Account Balance</div>
               <div className="text-2xl font-bold">${demoAccount.balance.toLocaleString()}</div>
             </div>
