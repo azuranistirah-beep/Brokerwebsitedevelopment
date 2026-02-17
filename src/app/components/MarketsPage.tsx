@@ -13,6 +13,7 @@ import { useSearchParams } from "react-router";
 import { PopularAssets } from "./PopularAssets";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { unifiedPriceService } from "../lib/unifiedPriceService";
+import { TradeResultModal } from "./TradeResultModal";
 
 interface DemoAccount {
   balance: number;
@@ -168,6 +169,23 @@ export function MarketsPage() {
     totalProfit: 0,
     openPositions: 0
   });
+  
+  // ✅ Trade Result Modal State
+  const [showTradeResultModal, setShowTradeResultModal] = useState(false);
+  const [tradeResultData, setTradeResultData] = useState<{
+    result: 'win' | 'loss';
+    profit: number;
+    asset: string;
+    direction: 'up' | 'down';
+    entryPrice: number;
+    exitPrice: number;
+    priceChange: number;
+    priceChangePercent: number;
+    duration: string;
+    newBalance: number;
+    winRate: number;
+    totalProfit: number;
+  } | null>(null);
   
   // ✅ Handle URL filter parameter
   useEffect(() => {
@@ -327,6 +345,23 @@ export function MarketsPage() {
         }
       );
     }
+
+    // ✅ Update Trade Result Modal Data
+    setTradeResultData({
+      result: isWin ? 'win' : 'loss',
+      profit: profit,
+      asset: position.asset,
+      direction: position.type,
+      entryPrice: position.entryPrice,
+      exitPrice: exitPrice,
+      priceChange: priceChangeValue,
+      priceChangePercent: Number(priceChangePercent),
+      duration: position.duration,
+      newBalance: demoAccount.balance + returnAmount,
+      winRate: newWinRate,
+      totalProfit: newTotalProfit
+    });
+    setShowTradeResultModal(true);
   };
 
   const handleTrade = (type: 'up' | 'down') => {
@@ -774,6 +809,35 @@ export function MarketsPage() {
         title="Popular Assets"
         description="Track and trade the most popular stocks, cryptocurrencies, forex pairs, and commodities"
       />
+      
+      {/* ✅ Trade Result Modal */}
+      {tradeResultData && (
+        <TradeResultModal
+          isOpen={showTradeResultModal}
+          onClose={() => setShowTradeResultModal(false)}
+          result={tradeResultData.result}
+          profit={tradeResultData.profit}
+          asset={tradeResultData.asset}
+          direction={tradeResultData.direction}
+          entryPrice={tradeResultData.entryPrice}
+          exitPrice={tradeResultData.exitPrice}
+          priceChange={tradeResultData.priceChange}
+          priceChangePercent={tradeResultData.priceChangePercent}
+          duration={tradeResultData.duration}
+          newBalance={tradeResultData.newBalance}
+          winRate={tradeResultData.winRate}
+          totalProfit={tradeResultData.totalProfit}
+          onTradeAgain={() => {
+            // Scroll to top and reset
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onViewHistory={() => {
+            // Switch to history tab
+            const historyTab = document.querySelector('[value="history"]') as HTMLElement;
+            historyTab?.click();
+          }}
+        />
+      )}
     </div>
   );
 }
