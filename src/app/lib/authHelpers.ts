@@ -119,7 +119,12 @@ export async function makeAuthenticatedRequest(
     const token = await getValidAccessToken();
     
     if (!token) {
-      throw new Error("No valid authentication token");
+      // Instead of throwing, return a 401 response object
+      console.warn("⚠️ No authentication token - user not logged in");
+      return new Response(
+        JSON.stringify({ error: "Not authenticated", message: "Please login to access this resource" }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Create abort controller for timeout
@@ -149,8 +154,11 @@ export async function makeAuthenticatedRequest(
         
         if (refreshError || !refreshData.session) {
           console.error("❌ Token refresh failed:", refreshError);
-          await handleAuthError(new Error("Token refresh failed"));
-          throw new Error("Authentication failed");
+          // Don't throw, just return 401
+          return new Response(
+            JSON.stringify({ error: "Token refresh failed", message: "Please login again" }),
+            { status: 401, headers: { 'Content-Type': 'application/json' } }
+          );
         }
         
         console.log("✅ Token refreshed, retrying request...");
@@ -159,11 +167,9 @@ export async function makeAuthenticatedRequest(
         return makeAuthenticatedRequest(url, options, retryCount + 1);
       }
 
-      // If still 401 after retries, logout
+      // If still 401 after retries, return gracefully
       if (response.status === 401 && retryCount >= MAX_RETRIES) {
-        console.error("❌ 401 Unauthorized after retries - Logging out");
-        await handleAuthError(new Error("Invalid token"));
-        throw new Error("Authentication failed");
+        console.warn("⚠️ 401 Unauthorized after retries - Authentication required");
       }
 
       return response;
@@ -173,14 +179,21 @@ export async function makeAuthenticatedRequest(
       // Handle abort/timeout error
       if (fetchError.name === 'AbortError') {
         console.error("❌ Request timeout after", TIMEOUT_MS, "ms");
-        throw new Error("Request timeout - please check your connection");
+        return new Response(
+          JSON.stringify({ error: "Request timeout", message: "Please check your connection" }),
+          { status: 408, headers: { 'Content-Type': 'application/json' } }
+        );
       }
       
       throw fetchError;
     }
   } catch (error) {
     console.error("❌ Error in makeAuthenticatedRequest:", error);
-    throw error;
+    // Return error response instead of throwing
+    return new Response(
+      JSON.stringify({ error: "Request failed", message: String(error) }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 

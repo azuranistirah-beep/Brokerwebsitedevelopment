@@ -170,7 +170,7 @@ export function OverviewPage({ onNavigate }: OverviewPageProps) {
       if (error.message?.includes("timeout")) {
         setError("Connection timeout. Please check your internet and try again.");
       } else if (error.message?.includes("Authentication failed")) {
-        setError("Session expired. Please login again.");
+        setError("Session expired. Please sign in again.");
       } else if (error.message?.includes("Network")) {
         setError("Network error. Please check your internet connection.");
       } else {

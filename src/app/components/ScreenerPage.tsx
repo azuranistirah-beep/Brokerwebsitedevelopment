@@ -22,14 +22,6 @@ export function ScreenerPage() {
     { symbol: "PG", name: "Procter & Gamble", price: 150.34, change: -0.23, rating: "Hold", sector: "Consumer Defensive", type: "Stock" },
     { symbol: "DIS", name: "Walt Disney Co.", price: 98.12, change: 1.45, rating: "Buy", sector: "Communication Services", type: "Stock" },
     
-    // Cryptocurrency
-    { symbol: "BTCUSD", name: "Bitcoin", price: 64250.00, change: 2.45, rating: "Strong Buy", sector: "Cryptocurrency", type: "Crypto" },
-    { symbol: "ETHUSD", name: "Ethereum", price: 3520.00, change: 1.89, rating: "Buy", sector: "Cryptocurrency", type: "Crypto" },
-    { symbol: "BNBUSD", name: "Binance Coin", price: 420.50, change: 0.67, rating: "Buy", sector: "Cryptocurrency", type: "Crypto" },
-    { symbol: "XRPUSD", name: "Ripple", price: 0.52, change: -1.23, rating: "Hold", sector: "Cryptocurrency", type: "Crypto" },
-    { symbol: "SOLUSD", name: "Solana", price: 145.30, change: 3.12, rating: "Strong Buy", sector: "Cryptocurrency", type: "Crypto" },
-    { symbol: "ADAUSD", name: "Cardano", price: 0.48, change: 0.89, rating: "Hold", sector: "Cryptocurrency", type: "Crypto" },
-    
     // Forex Pairs
     { symbol: "EURUSD", name: "Euro / US Dollar", price: 1.0845, change: -0.15, rating: "Sell", sector: "Forex Major", type: "Forex" },
     { symbol: "GBPUSD", name: "British Pound / US Dollar", price: 1.2634, change: 0.23, rating: "Buy", sector: "Forex Major", type: "Forex" },
@@ -54,64 +46,67 @@ export function ScreenerPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen bg-slate-950 pb-20">
       {/* Ticker Tape */}
-      <div className="bg-white border-b border-slate-200">
-        <TickerTape colorTheme="light" />
+      <div className="bg-slate-900 border-b border-slate-800">
+        <TickerTape colorTheme="dark" />
       </div>
       
       <div className="pt-8">
         <div className="container mx-auto px-4">
-          <div className="flex justify-between items-center mb-6">
-             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Market Screener</h1>
-              <p className="text-slate-500">Filter and analyze all asset types - stocks, crypto, forex, indices, and commodities</p>
-             </div>
-          </div>
+          {/* Market Screener Section */}
+          <div>
+            <div className="flex justify-between items-center mb-6">
+               <div>
+                <h1 className="text-3xl font-bold text-white mb-2">Market Screener</h1>
+                <p className="text-slate-400">Filter and analyze stocks, forex, indices, and commodities</p>
+               </div>
+            </div>
 
-          <Card className="border-slate-200 shadow-sm bg-white overflow-hidden">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="text-slate-900 font-bold">Symbol</TableHead>
-                  <TableHead className="text-slate-900 font-bold">Name</TableHead>
-                  <TableHead className="text-slate-900 font-bold">Type</TableHead>
-                  <TableHead className="text-slate-900 font-bold text-right">Price</TableHead>
-                  <TableHead className="text-slate-900 font-bold text-right">Change %</TableHead>
-                  <TableHead className="text-slate-900 font-bold">Sector</TableHead>
-                  <TableHead className="text-slate-900 font-bold">Analyst Rating</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {screenerData.map((stock) => (
-                  <TableRow key={stock.symbol} className="hover:bg-slate-50 border-b border-slate-100 last:border-0">
-                    <TableCell className="font-medium text-slate-900">{stock.symbol}</TableCell>
-                    <TableCell className="text-slate-600">{stock.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {stock.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-slate-900">${stock.price.toLocaleString()}</TableCell>
-                    <TableCell className={`text-right font-medium ${stock.change >= 0 ? "text-green-600" : "text-red-600"}`}>
-                      {stock.change > 0 ? "+" : ""}{stock.change}%
-                    </TableCell>
-                    <TableCell className="text-slate-600">{stock.sector}</TableCell>
-                    <TableCell>
-                      <Badge variant={stock.rating.includes("Buy") ? "default" : "secondary"} className={
-                        stock.rating === "Strong Buy" ? "bg-green-600 hover:bg-green-700" :
-                        stock.rating === "Buy" ? "bg-blue-600 hover:bg-blue-700" :
-                        stock.rating === "Sell" ? "bg-red-600 hover:bg-red-700 text-white" :
-                        "bg-yellow-500 hover:bg-yellow-600 text-white"
-                      }>
-                        {stock.rating}
-                      </Badge>
-                    </TableCell>
+            <Card className="border-slate-800 shadow-sm bg-slate-900 overflow-hidden">
+              <Table>
+                <TableHeader className="bg-slate-800/50">
+                  <TableRow className="border-b border-slate-700">
+                    <TableHead className="text-slate-200 font-bold">Symbol</TableHead>
+                    <TableHead className="text-slate-200 font-bold">Name</TableHead>
+                    <TableHead className="text-slate-200 font-bold">Type</TableHead>
+                    <TableHead className="text-slate-200 font-bold text-right">Price</TableHead>
+                    <TableHead className="text-slate-200 font-bold text-right">Change %</TableHead>
+                    <TableHead className="text-slate-200 font-bold">Sector</TableHead>
+                    <TableHead className="text-slate-200 font-bold">Analyst Rating</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+                </TableHeader>
+                <TableBody>
+                  {screenerData.map((stock) => (
+                    <TableRow key={stock.symbol} className="hover:bg-slate-800/50 border-b border-slate-800 last:border-0">
+                      <TableCell className="font-medium text-white">{stock.symbol}</TableCell>
+                      <TableCell className="text-slate-300">{stock.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">
+                          {stock.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-white">${stock.price.toLocaleString()}</TableCell>
+                      <TableCell className={`text-right font-medium ${stock.change >= 0 ? "text-green-400" : "text-red-400"}`}>
+                        {stock.change > 0 ? "+" : ""}{stock.change}%
+                      </TableCell>
+                      <TableCell className="text-slate-300">{stock.sector}</TableCell>
+                      <TableCell>
+                        <Badge variant={stock.rating.includes("Buy") ? "default" : "secondary"} className={
+                          stock.rating === "Strong Buy" ? "bg-green-600 hover:bg-green-700 text-white" :
+                          stock.rating === "Buy" ? "bg-blue-600 hover:bg-blue-700 text-white" :
+                          stock.rating === "Sell" ? "bg-red-600 hover:bg-red-700 text-white" :
+                          "bg-yellow-500 hover:bg-yellow-600 text-white"
+                        }>
+                          {stock.rating}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

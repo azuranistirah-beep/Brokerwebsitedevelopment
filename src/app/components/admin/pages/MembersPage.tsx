@@ -70,17 +70,18 @@ export function MembersPage({ accessToken }: MembersPageProps) {
     try {
       setLoading(true);
       
-      console.log("🔍 Fetching users from backend...");
-      
       const response = await makeAuthenticatedRequest(
         `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/admin/users`
       );
 
-      console.log("📡 Response status:", response.status);
+      if (response.status === 401) {
+        // User not authenticated - silent fail
+        setUsers([]);
+        return;
+      }
 
       if (response.ok) {
         const result = await response.json();
-        console.log("✅ Users fetched:", result.users?.length || 0);
         
         // Filter out admins, only show members
         const members = result.users.filter((u: User) => u.role === 'member');
@@ -91,16 +92,10 @@ export function MembersPage({ accessToken }: MembersPageProps) {
         }
       } else {
         const errorText = await response.text();
-        console.error("❌ Fetch failed:", response.status, errorText);
-        toast.error(`Failed to fetch users: ${response.status}`);
+        console.warn("⚠️ Failed to load users data");
       }
     } catch (error: any) {
-      console.error("❌ Error fetching users:", error);
-      console.error("Error details:", error.message);
-      
-      if (!error.message.includes("Authentication failed")) {
-        toast.error(`Error loading users: ${error.message}`);
-      }
+      console.warn("⚠️ Failed to load users data");
     } finally {
       setLoading(false);
     }

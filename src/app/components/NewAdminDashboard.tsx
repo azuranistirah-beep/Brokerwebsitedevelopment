@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   TrendingUp, Package, Gift, MessageSquare, BarChart3, Settings,
   ArrowDownToLine
@@ -12,6 +12,7 @@ import { WithdrawalsPage } from "./admin/pages/WithdrawalsPage";
 import { DepositsPage } from "./admin/pages/DepositsPage";
 import { PlaceholderPage } from "./admin/pages/PlaceholderPage";
 import { toast } from "sonner";
+import { getValidAccessToken } from "../lib/authHelpers";
 
 interface NewAdminDashboardProps {
   onLogout: () => void;
@@ -21,7 +22,44 @@ interface NewAdminDashboardProps {
 
 export function NewAdminDashboard({ onLogout, adminName = "Admin", accessToken }: NewAdminDashboardProps) {
   const [activeMenu, setActiveMenu] = useState("overview");
+  const [isChecking, setIsChecking] = useState(true);
 
+  // Check authentication on mount
+  useEffect(() => {
+    checkAuthentication();
+  }, []);
+
+  const checkAuthentication = async () => {
+    try {
+      const token = await getValidAccessToken();
+      
+      if (!token) {
+        // No token - redirect immediately without toast (clean UX)
+        window.location.href = "/";
+        return;
+      }
+      
+      // Token exists - allow access
+      setIsChecking(false);
+    } catch (error) {
+      // Redirect on error too - silent
+      window.location.href = "/";
+    }
+  };
+
+  // Show loading only while checking (very brief)
+  if (isChecking) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If we get here, user is authenticated - render dashboard
   const handleMenuChange = (menu: string) => {
     setActiveMenu(menu);
   };

@@ -1,412 +1,258 @@
-# 🔧 FIX: Invalid Login Credentials
+# 🔧 Fix: Invalid Login Credentials Error
 
-## ❌ PROBLEM
-Error: `AuthApiError: Invalid login credentials`
+## ❌ Error Yang Terjadi
+```
+Sign in error: AuthApiError: Invalid login credentials
+```
 
-**Penyebab:**
-- Admin account belum berhasil dibuat di database
-- SQL mungkin tidak berjalan sempurna
-- Ada conflict atau error saat insert
+**Penyebab**: Akun `azuranistirah@gmail.com` belum dibuat di Supabase Auth.
 
 ---
 
-## ✅ SOLUSI LENGKAP
+## ✅ Solusi - Pilih Salah Satu Cara
 
-### **STEP 1: VERIFY - Cek Apakah Admin Sudah Ada**
+### **🚀 Cara 1: Via Browser (Paling Mudah)**
 
-Jalankan SQL ini untuk cek:
+1. **Buka URL**: `http://localhost:5173/quick-create-member`
 
-```sql
--- Check auth users
-SELECT id, email, email_confirmed_at, created_at
-FROM auth.users
-WHERE email = 'admin@investoft.com';
-```
+2. **Klik tombol** "Create Test Member Account"
 
-**Hasil yang diharapkan:**
-```
-| id            | email                | email_confirmed_at | created_at |
-|---------------|----------------------|-------------------|------------|
-| 22222222-...  | admin@investoft.com  | (timestamp)       | (timestamp)|
-```
+3. **Tunggu konfirmasi** success message
 
-**Jika TIDAK ADA hasil:**
-→ Admin belum dibuat, lanjut ke STEP 2
-
-**Jika ADA hasil tapi email_confirmed_at NULL:**
-→ Email belum confirmed, lanjut ke STEP 3
+4. **Login** dengan credentials:
+   - Email: `azuranistirah@gmail.com`
+   - Password: `Sundala99!`
 
 ---
 
-### **STEP 2: CREATE ADMIN (Versi yang Pasti Work)**
-
-Copy-paste SQL ini **SATU PER SATU** (jangan sekaligus):
-
-#### **2a. Delete existing (kalau ada yang corrupt):**
-
-```sql
--- Clean up any existing corrupt data
-DELETE FROM kv_store_20da1dab WHERE key = 'user:22222222-2222-2222-2222-222222222222';
-DELETE FROM auth.users WHERE email = 'admin@investoft.com';
-```
-
-#### **2b. Create auth user:**
-
-```sql
--- Create admin in auth.users
-INSERT INTO auth.users (
-  instance_id,
-  id,
-  aud,
-  role,
-  email,
-  encrypted_password,
-  email_confirmed_at,
-  confirmation_token,
-  recovery_token,
-  email_change_token_new,
-  email_change,
-  created_at,
-  updated_at,
-  raw_app_meta_data,
-  raw_user_meta_data,
-  is_super_admin,
-  last_sign_in_at
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  '22222222-2222-2222-2222-222222222222',
-  'authenticated',
-  'authenticated',
-  'admin@investoft.com',
-  crypt('AdminPass123!', gen_salt('bf')),
-  now(),
-  '',
-  '',
-  '',
-  '',
-  now(),
-  now(),
-  '{"provider":"email","providers":["email"]}'::jsonb,
-  '{"name":"Super Admin"}'::jsonb,
-  false,
-  null
-);
-```
-
-**Klik RUN** → Harus muncul "Success"
-
-#### **2c. Create KV Store profile:**
-
-```sql
--- Create admin profile in KV Store
-INSERT INTO kv_store_20da1dab (key, value)
-VALUES (
-  'user:22222222-2222-2222-2222-222222222222',
-  '{"id":"22222222-2222-2222-2222-222222222222","email":"admin@investoft.com","name":"Super Admin","balance":50000,"createdAt":"'||now()::text||'","role":"admin"}'::jsonb
-);
-```
-
-**Klik RUN** → Harus muncul "Success"
-
----
-
-### **STEP 3: VERIFY - Cek Lagi Setelah Create**
-
-```sql
--- Verify auth user
-SELECT 
-  id, 
-  email, 
-  email_confirmed_at IS NOT NULL as email_confirmed,
-  raw_user_meta_data->>'name' as name
-FROM auth.users 
-WHERE email = 'admin@investoft.com';
-```
-
-**Expected:**
-- ✅ `email_confirmed` = `true`
-- ✅ `name` = `Super Admin`
-
-```sql
--- Verify KV Store
-SELECT key, value 
-FROM kv_store_20da1dab 
-WHERE key = 'user:22222222-2222-2222-2222-222222222222';
-```
-
-**Expected:**
-- ✅ `role` = `"admin"`
-- ✅ `email` = `"admin@investoft.com"`
-
----
-
-### **STEP 4: TRY LOGIN**
-
-1. **Buka aplikasi:** http://localhost:5173
-2. **Klik "Log In"**
-3. **Masukkan:**
-   ```
-   Email: admin@investoft.com
-   Password: AdminPass123!
-   ```
-4. **Klik "Sign In"**
-
-**Jika masih error, lanjut ke Alternative Solution!**
-
----
-
-## 🆘 ALTERNATIVE SOLUTION (Kalau masih error)
-
-### **CARA 2: Buat dengan Email & Password Berbeda**
-
-Ganti email dan password dengan yang baru:
-
-```sql
--- Delete old attempts
-DELETE FROM kv_store_20da1dab WHERE value::jsonb->>'email' = 'myadmin@test.com';
-DELETE FROM auth.users WHERE email = 'myadmin@test.com';
-
--- Create with new credentials
-INSERT INTO auth.users (
-  instance_id, id, aud, role, email, encrypted_password, 
-  email_confirmed_at, created_at, updated_at, 
-  raw_app_meta_data, raw_user_meta_data
-) VALUES (
-  '00000000-0000-0000-0000-000000000000',
-  gen_random_uuid(),
-  'authenticated',
-  'authenticated',
-  'myadmin@test.com',
-  crypt('MyPassword123!', gen_salt('bf')),
-  now(),
-  now(),
-  now(),
-  '{"provider":"email","providers":["email"]}'::jsonb,
-  '{"name":"My Admin"}'::jsonb
-)
-RETURNING id;
-```
-
-**Copy ID yang muncul dari hasil RETURNING**, lalu:
-
-```sql
--- Replace YOUR_ID_HERE with the ID from above
-INSERT INTO kv_store_20da1dab (key, value)
-VALUES (
-  'user:YOUR_ID_HERE',
-  jsonb_build_object(
-    'id', 'YOUR_ID_HERE',
-    'email', 'myadmin@test.com',
-    'name', 'My Admin',
-    'balance', 50000,
-    'createdAt', now()::text,
-    'role', 'admin'
-  )
-);
-```
-
-**Login dengan:**
-```
-Email: myadmin@test.com
-Password: MyPassword123!
-```
-
----
-
-## 🆘 CARA 3: Via Sign Up UI + Promote
-
-Kalau SQL terus error, pakai cara ini (100% pasti work):
-
-### **3a. Sign Up via Website**
-
-1. **Buka aplikasi:** http://localhost:5173
-2. **Klik "Sign Up"** (pojok kanan atas)
-3. **Isi form:**
-   ```
-   Name: Test Admin
-   Email: testadmin@gmail.com
-   Password: testadmin123
-   ```
-4. **Klik "Sign Up"**
-5. **Tunggu sampai auto-login** → Anda masuk Member Dashboard
-
-### **3b. Get User ID**
-
-```sql
--- Get your user ID
-SELECT id, email, raw_user_meta_data->>'name' as name
-FROM auth.users
-WHERE email = 'testadmin@gmail.com';
-```
-
-**Copy ID yang muncul** (contoh: `abc123-def456-...`)
-
-### **3c. Promote to Admin**
-
-```sql
--- Replace YOUR_USER_ID with the actual ID from above
-UPDATE kv_store_20da1dab
-SET value = jsonb_set(value::jsonb, '{role}', '"admin"')
-WHERE key = 'user:YOUR_USER_ID';
-
--- Example if your ID is abc123-def456-789:
--- UPDATE kv_store_20da1dab
--- SET value = jsonb_set(value::jsonb, '{role}', '"admin"')
--- WHERE key = 'user:abc123-def456-789';
-```
-
-### **3d. Logout & Login Lagi**
-
-1. **Di app, klik "Logout"**
-2. **Klik "Log In"**
-3. **Masukkan:**
-   ```
-   Email: testadmin@gmail.com
-   Password: testadmin123
-   ```
-4. **Klik "Sign In"**
-
-**BOOM!** 🎉 Admin Panel!
-
----
-
-## 🔍 TROUBLESHOOTING CHECKLIST
-
-### **Check 1: Apakah Edge Functions Running?**
+### **💻 Cara 2: Via Node.js Script (Recommended)**
 
 ```bash
-# Check if server is running
-curl https://ourtzdfyqpytfojlquff.supabase.co/functions/v1/make-server-20da1dab/profile
+node test-create-and-login.js
 ```
 
-**Expected:** Some response (bukan 404)
+**Output yang diharapkan**:
+```
+╔═══════════════════════════════════════════════╗
+║  INVESTOFT - Create & Test Member Account    ║
+╚═══════════════════════════════════════════════╝
 
-### **Check 2: Apakah Extension pgcrypto Active?**
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧪 STEP 1: Creating Test Member Account
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Account created successfully!
 
-```sql
--- Enable pgcrypto extension (for crypt function)
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔐 STEP 2: Testing Login
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Login successful!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 STEP 3: Getting User Profile
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ Profile retrieved successfully!
+
+╔═══════════════════════════════════════════════╗
+║              ✅ ALL TESTS PASSED              ║
+╚═══════════════════════════════════════════════╝
 ```
 
-### **Check 3: List Semua Users**
-
-```sql
--- See all users
-SELECT 
-  au.id,
-  au.email,
-  au.email_confirmed_at,
-  au.raw_user_meta_data->>'name' as name,
-  kv.value::jsonb->>'role' as role
-FROM auth.users au
-LEFT JOIN kv_store_20da1dab kv ON kv.key = 'user:' || au.id
-ORDER BY au.created_at DESC
-LIMIT 10;
-```
-
-### **Check 4: Browser Console Errors**
-
-1. Buka browser Dev Tools (F12)
-2. Tab "Console"
-3. Try login lagi
-4. Screenshot error yang muncul
+Script ini akan:
+- ✅ Create akun di Supabase Auth
+- ✅ Test login
+- ✅ Verify profile dapat diambil
+- ✅ Menampilkan detail lengkap user
 
 ---
 
-## 💡 QUICK FIX (Copy-Paste All at Once)
+### **🐚 Cara 3: Via Bash Script (Linux/Mac)**
 
-Kalau mau cepat, copy-paste semua ini sekaligus:
-
-```sql
--- Complete admin setup (all in one)
-DO $$
-DECLARE
-  new_user_id uuid := '33333333-3333-3333-3333-333333333333';
-BEGIN
-  -- Clean up
-  DELETE FROM kv_store_20da1dab WHERE key = 'user:' || new_user_id;
-  DELETE FROM auth.users WHERE id = new_user_id;
-  
-  -- Create auth user
-  INSERT INTO auth.users (
-    instance_id, id, aud, role, email, encrypted_password,
-    email_confirmed_at, created_at, updated_at,
-    raw_app_meta_data, raw_user_meta_data
-  ) VALUES (
-    '00000000-0000-0000-0000-000000000000',
-    new_user_id,
-    'authenticated',
-    'authenticated',
-    'superadmin@investoft.com',
-    crypt('SuperAdmin123!', gen_salt('bf')),
-    now(),
-    now(),
-    now(),
-    '{"provider":"email","providers":["email"]}'::jsonb,
-    '{"name":"Super Admin"}'::jsonb
-  );
-  
-  -- Create KV profile
-  INSERT INTO kv_store_20da1dab (key, value)
-  VALUES (
-    'user:' || new_user_id,
-    jsonb_build_object(
-      'id', new_user_id::text,
-      'email', 'superadmin@investoft.com',
-      'name', 'Super Admin',
-      'balance', 100000,
-      'createdAt', now()::text,
-      'role', 'admin'
-    )
-  );
-  
-  RAISE NOTICE 'Admin created successfully!';
-END $$;
-```
-
-**Login dengan:**
-```
-Email: superadmin@investoft.com
-Password: SuperAdmin123!
+```bash
+bash quick-create-member.sh
 ```
 
 ---
 
-## ✅ VERIFICATION FINAL
+### **🌐 Cara 4: Via cURL (Manual)**
 
-Setelah berhasil create, verify dengan:
-
-```sql
--- Final check
-SELECT 
-  'Auth User' as source,
-  email,
-  email_confirmed_at IS NOT NULL as confirmed
-FROM auth.users 
-WHERE email IN ('admin@investoft.com', 'superadmin@investoft.com', 'myadmin@test.com')
-UNION ALL
-SELECT 
-  'KV Store' as source,
-  value::jsonb->>'email' as email,
-  (value::jsonb->>'role' = 'admin') as confirmed
-FROM kv_store_20da1dab
-WHERE value::jsonb->>'role' = 'admin';
+```bash
+curl -X POST \
+  'https://ourtzdfyqpytfojlquff.supabase.co/functions/v1/make-server-20da1dab/create-test-member' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "azuranistirah@gmail.com",
+    "password": "Sundala99!",
+    "name": "Azura Nistirah",
+    "initial_balance": 0
+  }'
 ```
 
-**Expected:** 2 rows (1 from auth, 1 from KV) dengan `confirmed = true`
+**Expected Response**:
+```json
+{
+  "success": true,
+  "message": "Test member account created successfully",
+  "user": {
+    "id": "uuid-here",
+    "email": "azuranistirah@gmail.com",
+    "name": "Azura Nistirah",
+    "role": "member",
+    "status": "approved",
+    "demo_balance": 0,
+    "real_balance": 0
+  },
+  "login_info": {
+    "email": "azuranistirah@gmail.com",
+    "note": "Account is active and ready to login"
+  }
+}
+```
 
 ---
 
-## 📞 MASIH ERROR?
+## 🔐 Setelah Akun Dibuat - Test Login
 
-**Kalau masih error setelah semua cara di atas:**
+### **Via Frontend (Browser)**:
 
-1. **Screenshot error message** di browser console
-2. **Screenshot hasil query** verify di atas
-3. **Tanya saya lagi** dengan screenshot tersebut
-
-Saya akan bantu debug lebih lanjut! 🚀
+1. Buka `http://localhost:5173/`
+2. Klik "Sign In" di header
+3. Masukkan:
+   ```
+   Email: azuranistirah@gmail.com
+   Password: Sundala99!
+   ```
+4. Klik "Sign In"
+5. ✅ Seharusnya redirect ke `/member` dashboard
 
 ---
 
-**Good luck!** 💪
+### **Via API (cURL)**:
+
+```bash
+# Test login via Supabase Auth
+curl -X POST \
+  'https://ourtzdfyqpytfojlquff.supabase.co/auth/v1/token?grant_type=password' \
+  -H 'Content-Type: application/json' \
+  -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91cnR6ZGZ5cXB5dGZvamxxdWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzY1OTA2MzgsImV4cCI6MjA1MjE2NjYzOH0.wCL4yhI4VZbwrG0lc8eX_YCwfwq-0hVpHnl4_6xrQag' \
+  -d '{
+    "email": "azuranistirah@gmail.com",
+    "password": "Sundala99!"
+  }'
+```
+
+**Success Response**:
+```json
+{
+  "access_token": "eyJhbGc...",
+  "token_type": "bearer",
+  "expires_in": 3600,
+  "expires_at": 1234567890,
+  "refresh_token": "...",
+  "user": {
+    "id": "uuid",
+    "email": "azuranistirah@gmail.com",
+    "...": "..."
+  }
+}
+```
+
+---
+
+## 🧪 Verifikasi Akun Berhasil Dibuat
+
+### **Check via Supabase Dashboard**:
+
+1. Buka Supabase Dashboard: `https://supabase.com/dashboard`
+2. Pilih project: `ourtzdfyqpytfojlquff`
+3. Navigasi ke: **Authentication** → **Users**
+4. Cari email: `azuranistirah@gmail.com`
+5. Verify:
+   - ✅ Email confirmed: Yes
+   - ✅ Status: Active
+
+### **Check via API**:
+
+```bash
+# Get user profile (need access token from login)
+curl -X GET \
+  'https://ourtzdfyqpytfojlquff.supabase.co/functions/v1/make-server-20da1dab/profile' \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN_HERE'
+```
+
+---
+
+## ❓ Troubleshooting
+
+### **Error: "User already exists"**
+**Solusi**: Akun sudah dibuat sebelumnya, langsung login saja!
+
+### **Error: "Connection refused"**
+**Solusi**:
+1. Pastikan backend server running
+2. Check Supabase status
+3. Verify project ID benar: `ourtzdfyqpytfojlquff`
+
+### **Error: "Invalid token"**
+**Solusi**:
+1. Token expired, login ulang
+2. Pastikan menggunakan ANON_KEY yang benar
+
+### **Login berhasil tapi tidak redirect**
+**Solusi**:
+1. Check browser console untuk errors
+2. Verify `/member` route exists
+3. Clear localStorage: `localStorage.clear()`
+4. Refresh browser
+
+### **Balance tidak muncul di dashboard**
+**Solusi**:
+1. Normal! Balance awal memang $0
+2. Login sebagai admin untuk add balance
+3. Atau edit via Admin Panel
+
+---
+
+## 📊 Summary
+
+| Item | Value |
+|------|-------|
+| **Email** | azuranistirah@gmail.com |
+| **Password** | Sundala99! |
+| **Initial Balance** | $0 |
+| **Role** | member |
+| **Status** | approved (active) |
+| **Can Login?** | ✅ Yes (after account created) |
+
+---
+
+## 🎯 Quick Test Workflow
+
+```bash
+# 1. Create account
+node test-create-and-login.js
+
+# 2. Open browser
+# http://localhost:5173/
+
+# 3. Click "Sign In"
+
+# 4. Enter credentials:
+#    Email: azuranistirah@gmail.com
+#    Password: Sundala99!
+
+# 5. ✅ Should redirect to /member
+```
+
+---
+
+## 📝 Files Created for This Fix
+
+1. ✅ `/test-create-and-login.js` - Complete test script
+2. ✅ `/quick-create-member.sh` - Bash script
+3. ✅ `/src/app/components/QuickCreateMember.tsx` - React component
+4. ✅ Route added: `/quick-create-member`
+5. ✅ Backend endpoint: `/create-test-member`
+
+---
+
+**Pilih cara yang paling mudah untuk Anda dan jalankan sekarang! Setelah akun dibuat, error "Invalid login credentials" akan hilang.** ✅

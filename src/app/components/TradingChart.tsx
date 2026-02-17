@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { realTimeWebSocket } from "../lib/realTimeWebSocket";
 
 interface TradingChartProps {
   symbol: string;
@@ -13,19 +12,8 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
   const containerRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
   const widgetRef = useRef<any>(null);
-  const pricePollingIntervalRef = useRef<any>(null);
   const containerIdRef = useRef(`tradingview_${Math.random().toString(36).substring(7)}`);
-  const onSymbolChangeRef = useRef(onSymbolChange);
-  const onPriceUpdateRef = useRef(onPriceUpdate);
-
-  // Update callback refs when they change
-  useEffect(() => {
-    onSymbolChangeRef.current = onSymbolChange;
-  }, [onSymbolChange]);
-
-  useEffect(() => {
-    onPriceUpdateRef.current = onPriceUpdate;
-  }, [onPriceUpdate]);
+  const isCleaningUpRef = useRef(false);
 
   const mapInterval = (i: string) => {
     if (i.endsWith("m")) return i.replace("m", "");
@@ -38,6 +26,8 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
   const tvInterval = mapInterval(interval);
 
   useEffect(() => {
+    isCleaningUpRef.current = false;
+    
     // Check if script is already in head
     if (!document.getElementById("tv-widget-script")) {
       const script = document.createElement("script");
@@ -62,21 +52,29 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
             initWidget();
           }
         }, 100);
+        
+        // Cleanup interval if component unmounts
+        return () => clearInterval(checkTv);
       }
     }
 
     function initWidget() {
+      if (isCleaningUpRef.current) return;
       if (!containerRef.current || !(window as any).TradingView) return;
 
-      // Clear container
-      containerRef.current.innerHTML = "";
-      
-      // Clear previous polling interval
-      if (pricePollingIntervalRef.current) {
-        clearInterval(pricePollingIntervalRef.current);
-        pricePollingIntervalRef.current = null;
+      // Safely clear container
+      try {
+        if (containerRef.current && containerRef.current.parentNode) {
+          containerRef.current.innerHTML = "";
+        }
+      } catch (error) {
+        console.warn("⚠️ [TradingChart] Container clear error (safe to ignore):", error);
       }
 
+      console.log(`🎨 [TradingChart] Initializing TradingView widget for ${symbol}`);
+
+      // ✅ USE STANDARD TRADINGVIEW WIDGET (No custom datafeed)
+      // TradingView will handle its own data from their servers
       widgetRef.current = new (window as any).TradingView.widget({
         autosize: true,
         symbol: symbol,
@@ -97,7 +95,6 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
         popup_width: "1000",
         popup_height: "650",
         hide_side_toolbar: false,
-        // ✅ Disable iframe access attempts to prevent CORS errors
         disabled_features: [
           "header_symbol_search",
           "symbol_search_hot_key"
@@ -107,23 +104,6 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
         ],
         onChartReady: () => {
           console.log("✅ [TradingChart] Chart Ready for:", symbol);
-          
-          // ✅ Subscribe to realTimeWebSocket for REAL market price updates
-          // Clean symbol: BINANCE:BTCUSDT -> BTCUSDT
-          const cleanSymbol = symbol.replace('BINANCE:', '').replace('NASDAQ:', '').replace('NYSE:', '');
-          console.log(`📊 [TradingChart] Subscribing to WebSocket for cleaned symbol: ${cleanSymbol} (original: ${symbol})`);
-          
-          const unsubscribe = realTimeWebSocket.subscribe(cleanSymbol, (price) => {
-            console.log(`💰 [TradingChart] Price Update: ${cleanSymbol} = $${price.toFixed(2)}`);
-            if (onPriceUpdateRef.current && price > 0) {
-              onPriceUpdateRef.current(price);
-            }
-          });
-          
-          // Store unsubscribe function
-          pricePollingIntervalRef.current = unsubscribe;
-          
-          console.log("✅ [TradingChart] Price updates connected via Binance WebSocket");
         }
       });
     }
@@ -135,27 +115,33 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
     
     // Cleanup on unmount or symbol change
     return () => {
-      if (pricePollingIntervalRef.current) {
-        console.log("🛑 [TradingChart] Unsubscribing from price updates");
-        // Call unsubscribe function if it exists
-        if (typeof pricePollingIntervalRef.current === 'function') {
-          pricePollingIntervalRef.current();
-        } else {
-          clearInterval(pricePollingIntervalRef.current);
+      isCleaningUpRef.current = true;
+      console.log("🛑 [TradingChart] Cleanup");
+      
+      // Remove widget with better error handling
+      if (widgetRef.current) {
+        try {
+          // Check if widget has remove method and iframe still exists
+          if (typeof widgetRef.current.remove === 'function') {
+            widgetRef.current.remove();
+          }
+        } catch (error) {
+          // Silently handle cleanup errors as they don't affect functionality
+          // These typically happen when the DOM is already cleaned up
         }
-        pricePollingIntervalRef.current = null;
+        widgetRef.current = null;
+      }
+      
+      // Also clear the container if it still exists
+      if (containerRef.current && containerRef.current.parentNode) {
+        try {
+          containerRef.current.innerHTML = "";
+        } catch (error) {
+          // Silently ignore
+        }
       }
     };
-
   }, [symbol, tvInterval, theme]);
 
-  return (
-    <div className="w-full h-full min-h-[400px] bg-white rounded-lg overflow-hidden border border-slate-200">
-      <div
-        ref={containerRef}
-        id={containerIdRef.current}
-        className="w-full h-full"
-      />
-    </div>
-  );
+  return <div ref={containerRef} id={containerIdRef.current} style={{ height: "100%", width: "100%" }} />;
 }

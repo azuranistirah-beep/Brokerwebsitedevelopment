@@ -1,7 +1,7 @@
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { Card } from "./ui/card";
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
-import { realTimeWebSocket } from "../lib/realTimeWebSocket";
+import { unifiedPriceService } from "../lib/unifiedPriceService";
 
 interface TickerItem {
   symbol: string;
@@ -37,7 +37,7 @@ export function MarketTicker() {
     const cryptoSymbols = ['BTCUSD', 'ETHUSD', 'SOLUSD'];
     
     cryptoSymbols.forEach((symbol) => {
-      const unsubscribe = realTimeWebSocket.subscribe(symbol, (newPrice) => {
+      const unsubscribe = unifiedPriceService.subscribe(symbol, (newPrice) => {
         setTickerItems((prevItems) => {
           return prevItems.map((item) => {
             if (item.symbol === symbol) {
@@ -65,7 +65,7 @@ export function MarketTicker() {
   }, []);
 
   return (
-    <div className="bg-white border-b border-slate-200 overflow-hidden py-2 shadow-sm">
+    <Card className="bg-white border-b border-slate-200 overflow-hidden py-2 shadow-sm">
       <div className="flex whitespace-nowrap">
         <motion.div
           className="flex gap-8"
@@ -92,6 +92,6 @@ export function MarketTicker() {
           ))}
         </motion.div>
       </div>
-    </div>
+    </Card>
   );
 }

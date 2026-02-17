@@ -1,5 +1,4 @@
-import { useEffect, useRef, memo, useState } from "react";
-import { realTimeWebSocket } from "../lib/realTimeWebSocket";
+import { useEffect, useRef, memo } from "react";
 
 interface MiniChartProps {
   symbol: string;
@@ -8,22 +7,6 @@ interface MiniChartProps {
 
 export const MiniChart = memo(({ symbol, colorTheme = "dark" }: MiniChartProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [price, setPrice] = useState<number>(0);
-  const [priceChange, setPriceChange] = useState<number>(0);
-
-  // ✅ Subscribe to real-time price updates
-  useEffect(() => {
-    const cleanSymbol = symbol.replace('BINANCE:', '').replace('NASDAQ:', '').replace('NYSE:', '').split('/')[0];
-    
-    const unsubscribe = realTimeWebSocket.subscribe(cleanSymbol, (newPrice) => {
-      if (newPrice && newPrice > 0) {
-        setPriceChange(((newPrice - price) / price) * 100);
-        setPrice(newPrice);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [symbol]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -38,7 +21,7 @@ export const MiniChart = memo(({ symbol, colorTheme = "dark" }: MiniChartProps) 
       locale: "en",
       dateRange: "12M",
       colorTheme: colorTheme,
-      isTransparent: true,
+      isTransparent: false,
       autosize: true,
       largeChartUrl: ""
     });
@@ -53,23 +36,9 @@ export const MiniChart = memo(({ symbol, colorTheme = "dark" }: MiniChartProps) 
     };
   }, [symbol, colorTheme]);
 
-  // ✅ Extract display name
-  const displaySymbol = symbol.replace('BINANCE:', '').replace('NASDAQ:', '').replace('NYSE:', '').split('/')[0];
-
   return (
     <div className="relative h-full w-full">
-      {/* ✅ OVERLAY: Always visible price info on top of TradingView widget */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-2 bg-gradient-to-b from-slate-900 to-transparent">
-        <div className="text-xs font-bold text-white mb-0.5">{displaySymbol}</div>
-        <div className="text-sm font-bold text-blue-400">${price.toFixed(price > 100 ? 2 : 5)}</div>
-        {priceChange !== 0 && (
-          <div className={`text-xs font-semibold ${priceChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-            {priceChange >= 0 ? '+' : ''}{priceChange.toFixed(2)}%
-          </div>
-        )}
-      </div>
-      
-      {/* ✅ TradingView Widget Container */}
+      {/* ✅ TradingView Widget Container - Shows Real Prices */}
       <div className="tradingview-widget-container h-full w-full" ref={containerRef}>
         <div className="tradingview-widget-container__widget h-full w-full"></div>
       </div>
