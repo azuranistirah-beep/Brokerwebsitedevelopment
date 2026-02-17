@@ -192,10 +192,64 @@ export function MarketsPage() {
     const filter = searchParams.get('filter');
     const symbol = searchParams.get('symbol');
     
-    // If symbol is directly provided, use it
+    // If symbol is directly provided, convert to TradingView format
     if (symbol) {
       console.log(`🎯 Direct symbol from URL: ${symbol}`);
-      setSelectedSymbol(symbol);
+      
+      // ✅ MAP SEARCH SYMBOL TO TRADINGVIEW FORMAT
+      const symbolMap: Record<string, string> = {
+        // Crypto - Expanded list
+        'BTCUSD': 'BINANCE:BTCUSDT',
+        'ETHUSD': 'BINANCE:ETHUSDT',
+        'BNBUSD': 'BINANCE:BNBUSDT',
+        'SOLUSD': 'BINANCE:SOLUSDT',
+        'XRPUSD': 'BINANCE:XRPUSDT',
+        'ADAUSD': 'BINANCE:ADAUSDT',
+        'DOGEUSD': 'BINANCE:DOGEUSDT',
+        'MATICUSD': 'BINANCE:MATICUSDT',
+        'TRXUSD': 'BINANCE:TRXUSDT',
+        'DOTUSD': 'BINANCE:DOTUSDT',
+        'LTCUSD': 'BINANCE:LTCUSDT',
+        'AVAXUSD': 'BINANCE:AVAXUSDT',
+        'LINKUSD': 'BINANCE:LINKUSDT',
+        'ATOMUSD': 'BINANCE:ATOMUSDT',
+        'UNIUSD': 'BINANCE:UNIUSDT',
+        'ETCUSD': 'BINANCE:ETCUSDT',
+        'XLMUSD': 'BINANCE:XLMUSDT',
+        'BCHUSD': 'BINANCE:BCHUSDT',
+        'NEARUSD': 'BINANCE:NEARUSDT',
+        
+        // Forex
+        'EURUSD': 'FX:EURUSD',
+        'GBPUSD': 'FX:GBPUSD',
+        'USDJPY': 'FX:USDJPY',
+        'AUDUSD': 'FX:AUDUSD',
+        'USDCAD': 'FX:USDCAD',
+        'NZDUSD': 'FX:NZDUSD',
+        'USDCHF': 'FX:USDCHF',
+        
+        // Stocks
+        'AAPL': 'NASDAQ:AAPL',
+        'TSLA': 'NASDAQ:TSLA',
+        'GOOGL': 'NASDAQ:GOOGL',
+        'MSFT': 'NASDAQ:MSFT',
+        'AMZN': 'NASDAQ:AMZN',
+        'NVDA': 'NASDAQ:NVDA',
+        'META': 'NASDAQ:META',
+        'JPM': 'NYSE:JPM',
+        
+        // Commodities (support both GOLD and XAUUSD)
+        'GOLD': 'TVC:GOLD',
+        'XAUUSD': 'TVC:GOLD',
+        'SILVER': 'TVC:SILVER',
+        'XAGUSD': 'TVC:SILVER',
+        'USOIL': 'TVC:USOIL',
+        'UKOIL': 'TVC:UKOIL',
+      };
+      
+      const tradingViewSymbol = symbolMap[symbol.toUpperCase()] || symbol;
+      console.log(`📊 Mapped ${symbol} → ${tradingViewSymbol}`);
+      setSelectedSymbol(tradingViewSymbol);
       return;
     }
     
@@ -537,6 +591,7 @@ export function MarketsPage() {
               {/* TradingView Chart */}
               <div className="h-[500px]">
                 <TradingChart 
+                  key={selectedSymbol} // ✅ Force re-mount when symbol changes
                   symbol={selectedSymbol}
                   theme="dark"
                 />
@@ -555,34 +610,6 @@ export function MarketsPage() {
                     <Badge className={currentPrice >= previousPrice ? "bg-green-600 text-xs" : "bg-red-600 text-xs"}>
                       {currentPrice >= previousPrice ? '▲' : '▼'}
                     </Badge>
-                  </div>
-                </div>
-                
-                {/* ✅ PRICE SYNCHRONIZATION INDICATOR */}
-                <div className="mt-3 pt-3 border-t border-slate-700">
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-slate-400">Data Source:</span>
-                      <span className="text-green-300 font-semibold">Binance Kline (Candlestick)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400">Price Type:</span>
-                      <span className="text-green-300 font-semibold">Current Candle CLOSE</span>
-                    </div>
-                  </div>
-                  
-                  {/* ✅ VERIFICATION INFO */}
-                  <div className="mt-2 flex items-start gap-2 bg-green-900/20 border border-green-700/30 rounded p-2">
-                    <Activity className="h-3.5 w-3.5 text-green-400 mt-0.5 flex-shrink-0" />
-                    <div className="text-xs text-slate-300 leading-relaxed">
-                      <span className="font-semibold text-green-300">✓ Chart Synchronized: </span>
-                      This price shows the <span className="font-semibold text-green-300">current 1-minute candle CLOSE price</span> from Binance,
-                      which is <span className="font-semibold text-green-300">exactly what TradingView displays</span> for BINANCE crypto pairs. 
-                      The chart and live price use the <span className="font-semibold text-green-300">same Binance data source</span>,
-                      ensuring <span className="font-semibold text-green-300">100% synchronization</span>.
-                      <span className="block mt-1 text-slate-400 italic text-[10px]">Note: Live price updates every second (current candle), chart updates every minute (completed candle)</span>
-                    </div>
                   </div>
                 </div>
               </div>

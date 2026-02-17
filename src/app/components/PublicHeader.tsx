@@ -49,12 +49,18 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showMobileSuggestions, setShowMobileSuggestions] = useState(false);
+  const [mobileSearchQuery, setMobileSearchQuery] = useState("");
   const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowSuggestions(false);
+      }
+      if (mobileSearchRef.current && !mobileSearchRef.current.contains(event.target as Node)) {
+        setShowMobileSuggestions(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -65,8 +71,29 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    navigate("/cryptocurrency");
+    // Navigate based on first filtered result
+    if (filteredSuggestions.length > 0) {
+      const item = filteredSuggestions[0];
+      navigateToAsset(item);
+    }
     setShowSuggestions(false);
+  };
+
+  const handleMobileSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Navigate based on first filtered result
+    if (filteredMobileSuggestions.length > 0) {
+      const item = filteredMobileSuggestions[0];
+      navigateToAsset(item);
+    }
+    setShowMobileSuggestions(false);
+  };
+
+  // ✅ SMART ROUTING - ALL assets go to /markets with TradingView chart
+  const navigateToAsset = (item: { symbol: string; name: string; type: string }) => {
+    // Navigate to Markets page with symbol parameter for ALL assets
+    // TradingView chart supports crypto, forex, stocks, and commodities
+    navigate(`/markets?symbol=${item.symbol}`);
   };
 
   // Filter suggestions based on search query
@@ -75,8 +102,16 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
         item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
         item.type.toLowerCase().includes(searchQuery.toLowerCase())
-      ).slice(0, 10) // Limit to 10 results
-    : SUGGESTIONS.slice(0, 10); // Show first 10 if no query
+      ).slice(0, 1) // ✅ Only 1 suggestion
+    : []; // ✅ Show nothing if no query
+
+  const filteredMobileSuggestions = mobileSearchQuery.trim()
+    ? SUGGESTIONS.filter(item =>
+        item.name.toLowerCase().includes(mobileSearchQuery.toLowerCase()) ||
+        item.symbol.toLowerCase().includes(mobileSearchQuery.toLowerCase()) ||
+        item.type.toLowerCase().includes(mobileSearchQuery.toLowerCase())
+      ).slice(0, 1) // ✅ Only 1 suggestion
+    : []; // ✅ Show nothing if no query
 
   const navItems = [
     { path: "/markets", label: "Markets" },
@@ -132,28 +167,21 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </form>
-            {showSuggestions && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-lg shadow-xl z-50 overflow-hidden max-h-96 overflow-y-auto">
-                <div className="p-2 px-4 text-xs text-slate-400 uppercase font-bold tracking-wider bg-slate-800 flex items-center justify-between">
-                  <span>{searchQuery.trim() ? 'Search Results' : 'Popular Searches'}</span>
-                  {searchQuery.trim() && filteredSuggestions.length > 0 && (
-                    <span className="text-blue-400 font-normal normal-case">{filteredSuggestions.length} found</span>
-                  )}
-                </div>
-                {filteredSuggestions.length > 0 ? (
-                  filteredSuggestions.map((item) => (
+            {showSuggestions && filteredSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800/95 border border-slate-700/50 rounded-md shadow-lg z-50 overflow-hidden backdrop-blur-sm">
+                {filteredSuggestions.map((item) => (
                     <button
                       key={item.symbol}
-                      className="w-full text-left px-4 py-2.5 hover:bg-slate-800 text-sm text-slate-300 flex justify-between items-center gap-3 group transition-colors"
+                      className="w-full text-left px-3 py-1.5 hover:bg-slate-700/80 text-slate-300 flex justify-between items-center gap-2 group transition-colors"
                       onClick={() => {
                         setSearchQuery(item.symbol);
-                        navigate("/cryptocurrency");
+                        navigateToAsset(item);
                         setShowSuggestions(false);
                       }}
                     >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="truncate">{item.name}</span>
-                        <span className={`text-xs px-1.5 py-0.5 rounded uppercase font-semibold flex-shrink-0 ${
+                      <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                        <span className="truncate text-xs">{item.name}</span>
+                        <span className={`text-[10px] px-1 py-0.5 rounded uppercase font-semibold flex-shrink-0 ${
                           item.type === 'crypto' ? 'bg-orange-500/20 text-orange-400' :
                           item.type === 'forex' ? 'bg-blue-500/20 text-blue-400' :
                           item.type === 'stock' ? 'bg-green-500/20 text-green-400' :
@@ -162,17 +190,11 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
                           {item.type}
                         </span>
                       </div>
-                      <span className="font-mono text-slate-400 group-hover:text-blue-400 transition-colors flex-shrink-0 font-semibold">
+                      <span className="text-[10px] text-slate-400 group-hover:text-blue-400 transition-colors flex-shrink-0 font-semibold">
                         {item.symbol}
                       </span>
                     </button>
-                  ))
-                ) : (
-                  <div className="px-4 py-8 text-center">
-                    <div className="text-slate-500 text-sm mb-1">No results found</div>
-                    <div className="text-slate-600 text-xs">Try searching for "Bitcoin", "AAPL", or "Gold"</div>
-                  </div>
-                )}
+                  ))}
               </div>
             )}
           </div>
@@ -208,58 +230,121 @@ export function PublicHeader({ onLoginClick, onSignupClick, isAuthenticated, use
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="bg-slate-900 border-slate-800 text-white w-[300px] sm:w-[400px]">
-              <div className="flex flex-col gap-6 mt-6">
-                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                  <Input 
-                    placeholder="Search..." 
-                    className="pl-9 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch(e)}
-                  />
+            <SheetContent side="right" className="bg-slate-900 border-slate-800 text-white w-[300px] sm:w-[350px]" hideTitle={true}>
+              {/* ✅ FIX: Add padding-right to avoid close button overlap */}
+              <div className="flex flex-col h-full pr-12">
+                
+                {/* ✅ Search Bar - AT TOP (as requested) */}
+                <div className="relative px-4 pt-4 mb-4" ref={mobileSearchRef}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input 
+                      placeholder="Search assets..." 
+                      className="pl-9 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 h-10 text-sm"
+                      onKeyDown={(e) => e.key === 'Enter' && handleMobileSearch(e)}
+                      onFocus={() => setShowMobileSuggestions(true)}
+                      value={mobileSearchQuery}
+                      onChange={(e) => setMobileSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  
+                  {/* ✅ MINIMAL Dropdown - Only 1 item, very small */}
+                  {showMobileSuggestions && filteredMobileSuggestions.length > 0 && (
+                    <div className="absolute left-4 right-4 top-[52px] bg-slate-800/95 border border-slate-700/50 rounded-md shadow-lg z-50 overflow-hidden backdrop-blur-sm">
+                      {filteredMobileSuggestions.map((item) => (
+                        <button
+                          key={item.symbol}
+                          className="w-full text-left px-2.5 py-1.5 hover:bg-slate-700/80 text-slate-300 flex justify-between items-center gap-1.5 group transition-colors"
+                          onClick={() => {
+                            setMobileSearchQuery(item.symbol);
+                            navigateToAsset(item);
+                            setShowMobileSuggestions(false);
+                          }}
+                        >
+                          <div className="flex items-center gap-1 flex-1 min-w-0">
+                            <span className="truncate text-xs">{item.name}</span>
+                            <span className={`text-[10px] px-1 py-0.5 rounded uppercase font-semibold flex-shrink-0 ${
+                              item.type === 'crypto' ? 'bg-orange-500/20 text-orange-400' :
+                              item.type === 'forex' ? 'bg-blue-500/20 text-blue-400' :
+                              item.type === 'stock' ? 'bg-green-500/20 text-green-400' :
+                              'bg-yellow-500/20 text-yellow-400'
+                            }`}>
+                              {item.type}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 group-hover:text-blue-400 transition-colors flex-shrink-0 font-semibold">
+                            {item.symbol}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <nav className="flex flex-col gap-4 text-lg font-medium">
-                  {navItems.map((item) => (
+
+                {/* Navigation Links - Below search */}
+                <nav className="flex flex-col gap-1 px-4 flex-1">{navItems.map((item) => (
                     <SheetClose asChild key={item.path}>
-                      <Link to={item.path} className="text-left hover:text-blue-400 text-slate-300">
+                      <Link 
+                        to={item.path} 
+                        className={`text-left py-3 px-3 rounded-lg text-sm font-medium transition-colors ${
+                          location.pathname === item.path 
+                            ? 'bg-blue-600/10 text-blue-400' 
+                            : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
                         {item.label}
                       </Link>
                     </SheetClose>
                   ))}
-                  {isAuthenticated ? (
-                    <SheetClose asChild>
-                      <Link to="/member" className="text-left hover:text-blue-400 font-bold text-blue-400">
-                        Dashboard
-                      </Link>
-                    </SheetClose>
-                  ) : (
-                    <SheetClose asChild>
-                      <button onClick={onSignupClick} className="text-left hover:text-blue-400 font-bold text-blue-400">
-                        Trade Now
-                      </button>
-                    </SheetClose>
-                  )}
                 </nav>
-                <div className="flex flex-col gap-3 mt-auto">
+
+                {/* ✅ Action Buttons - At bottom */}
+                <div className="px-4 pb-6 space-y-3 border-t border-slate-800 pt-4">
                   {isAuthenticated ? (
                     <>
-                      <Link to={userRole === 'admin' ? '/admin' : '/member'}>
-                        <Button variant="outline" className="text-white border-slate-700 w-full hover:bg-slate-800">
-                          Dashboard
-                        </Button>
-                      </Link>
-                      <Button variant="outline" className="text-white border-slate-700 w-full hover:bg-slate-800" onClick={onLogout}>
+                      <SheetClose asChild>
+                        <Link to={userRole === 'admin' ? '/admin' : '/member'} className="block">
+                          <Button variant="outline" className="text-white border-slate-700 w-full hover:bg-slate-800 h-11 bg-transparent">
+                            Dashboard
+                          </Button>
+                        </Link>
+                      </SheetClose>
+                      <Button 
+                        variant="outline" 
+                        className="text-white border-slate-700 w-full hover:bg-slate-800 h-11 bg-transparent" 
+                        onClick={() => {
+                          onLogout();
+                          setIsMenuOpen(false);
+                        }}
+                      >
                         Logout
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button variant="outline" className="text-white border-slate-700 w-full hover:bg-slate-800" onClick={onLoginClick}>
-                        Sign In
-                      </Button>
-                      <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-full" onClick={onSignupClick}>
-                        Get Started
-                      </Button>
+                      <SheetClose asChild>
+                        <Button 
+                          variant="outline" 
+                          className="text-white border-slate-700 w-full hover:bg-slate-800 h-11 bg-transparent"
+                          onClick={() => {
+                            onLoginClick();
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          Sign In
+                        </Button>
+                      </SheetClose>
+                      <SheetClose asChild>
+                        <Button 
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white w-full h-11 font-semibold"
+                          onClick={() => {
+                            onSignupClick();
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          Get Started
+                        </Button>
+                      </SheetClose>
                     </>
                   )}
                 </div>

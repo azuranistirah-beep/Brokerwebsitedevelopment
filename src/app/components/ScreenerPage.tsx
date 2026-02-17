@@ -88,7 +88,7 @@ export function ScreenerPage() {
                             {stock.type}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-mono text-white">${stock.price.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-white">${stock.price.toLocaleString()}</TableCell>
                         <TableCell className={`text-right font-medium ${stock.change >= 0 ? "text-green-400" : "text-red-400"}`}>
                           {stock.change > 0 ? "+" : ""}{stock.change}%
                         </TableCell>

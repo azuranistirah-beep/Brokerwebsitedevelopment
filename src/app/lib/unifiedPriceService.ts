@@ -66,30 +66,51 @@ class UnifiedPriceService {
    */
   private async fetchPriceFromBackend(symbol: string): Promise<number | null> {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+
       const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/price?symbol=${symbol}`,
         {
           headers: {
             'Authorization': `Bearer ${publicAnonKey}`,
           },
+          signal: controller.signal,
         }
       );
 
+      clearTimeout(timeoutId);
+
       if (!response.ok) {
-        console.warn(`⚠️ [UnifiedPriceService] Backend error for ${symbol}: ${response.status}`);
+        // Only log 4xx and 5xx errors if under error threshold
+        const currentErrorCount = this.errorCounts.get(symbol) || 0;
+        if (currentErrorCount < this.MAX_ERROR_LOG_COUNT) {
+          console.warn(`⚠️ [UnifiedPriceService] Backend HTTP ${response.status} for ${symbol}`);
+        }
         return null;
       }
 
       const data = await response.json();
       
       if (data.price && data.price > 0) {
-        console.log(`💰 [UnifiedPriceService] Backend price for ${symbol}: $${data.price.toFixed(2)} (source: ${data.source || 'unknown'})`);
+        // Only log successful fetches occasionally to reduce spam
+        if (Math.random() < 0.1) { // 10% chance to log success
+          console.log(`💰 [UnifiedPriceService] ${symbol}: $${data.price.toFixed(2)} (${data.source || 'unknown'})`);
+        }
         return data.price;
       }
 
       return null;
     } catch (error: any) {
-      console.warn(`⚠️ [UnifiedPriceService] Fetch error for ${symbol}:`, error.message);
+      // Only log fetch errors if under error threshold
+      const currentErrorCount = this.errorCounts.get(symbol) || 0;
+      if (currentErrorCount < this.MAX_ERROR_LOG_COUNT) {
+        if (error.name === 'AbortError') {
+          console.warn(`⚠️ [UnifiedPriceService] Timeout for ${symbol}`);
+        } else {
+          console.warn(`⚠️ [UnifiedPriceService] Fetch error for ${symbol}: ${error.message}`);
+        }
+      }
       return null;
     }
   }

@@ -38,7 +38,7 @@ export function LandingPage() {
               </div>
 
               {/* Main Heading */}
-              <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold text-white mb-6 leading-none">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold text-white mb-4 sm:mb-6 leading-none">
                 Trade Crypto<br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-500 to-purple-600">
                   like a pro
@@ -46,7 +46,7 @@ export function LandingPage() {
               </h1>
 
               {/* Subtitle */}
-              <p className="text-xl text-slate-400 mb-6 leading-relaxed max-w-2xl mx-auto">
+              <p className="text-base sm:text-lg md:text-xl text-slate-400 mb-4 sm:mb-6 leading-relaxed max-w-2xl mx-auto px-4">
                 Advanced trading tools, lightning-fast execution, and unmatched security. Join millions of traders worldwide.
               </p>
 
@@ -100,9 +100,17 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Live Market Overview Section */}
-      <section className="py-16 bg-slate-950 border-t border-slate-900">
-        <LiveMarketOverview />
+      {/* ✨ Live Market Overview Section with Enhanced Background */}
+      <section className="relative py-16 bg-slate-950 border-t border-slate-900 overflow-hidden">
+        {/* ✨ Animated Background Gradients */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-600/5 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <LiveMarketOverview />
+        </div>
       </section>
 
       {/* Popular Assets Section - MOVED UP */}
