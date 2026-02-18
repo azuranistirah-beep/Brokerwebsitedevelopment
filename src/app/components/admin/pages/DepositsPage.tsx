@@ -369,6 +369,7 @@ export function DepositsPage({ accessToken }: DepositsPageProps) {
                     src={selectedDeposit.proofImage} 
                     alt="Payment proof" 
                     className="max-w-full rounded-lg border border-slate-700"
+                    loading="lazy"
                   />
                 </div>
               )}

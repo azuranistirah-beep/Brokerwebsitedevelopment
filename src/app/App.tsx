@@ -3,51 +3,71 @@ import { router } from "./routes";
 
 console.log("✅ App.tsx loaded successfully");
 
-// ✅ Suppress TradingView iframe warnings (safe to ignore)
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-const originalConsoleLog = console.log;
-
-console.error = (...args) => {
-  // Ignore TradingView iframe CORS warnings
-  const message = args[0]?.toString() || '';
+// ✅ Global error handler - ONLY suppress TradingView widget errors
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason?.toString() || '';
+  
+  // ONLY suppress TradingView-specific errors, NOT backend API errors
   if (
-    message.includes('iframe') ||
+    reason.includes('contentWindow') ||
+    reason.includes('Cannot listen to the event') ||
+    (reason.includes('iframe') && reason.includes('TradingView'))
+  ) {
+    console.warn('⚠️ [App] Suppressing TradingView widget error (expected)');
+    event.preventDefault();
+    return;
+  }
+  
+  // Log all other errors for debugging
+  console.error('❌ [App] Unhandled rejection:', reason);
+});
+
+// ✅ Global error handler - ONLY suppress TradingView widget errors
+window.addEventListener('error', (event) => {
+  const message = event.message?.toString() || '';
+  
+  // ONLY suppress TradingView-specific errors
+  if (
     message.includes('contentWindow') ||
     message.includes('Cannot listen to the event') ||
-    message.includes('Fetch failed: 401') ||
-    message.includes('Not authenticated')
+    (message.includes('iframe') && message.includes('TradingView'))
   ) {
-    return; // Suppress these specific warnings
+    console.warn('⚠️ [App] Suppressing TradingView widget error (expected)');
+    event.preventDefault();
+    return;
   }
-  originalConsoleError(...args);
+  
+  // Log all other errors for debugging
+  console.error('❌ [App] Unhandled error:', message);
+});
+
+// ✅ Allow console errors and warnings to show (needed for debugging real-time pricing)
+// Only suppress TradingView widget-specific messages
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.error = (...args) => {
+  const message = args[0]?.toString() || '';
+  if (
+    message.includes('contentWindow') ||
+    message.includes('Cannot listen to the event') ||
+    (message.includes('iframe') && message.includes('TradingView'))
+  ) {
+    return; // Suppress ONLY TradingView widget errors
+  }
+  originalConsoleError(...args); // Show all other errors
 };
 
 console.warn = (...args) => {
-  // Suppress known warnings that are expected/harmless
   const message = args[0]?.toString() || '';
   if (
-    message.includes('Binance Direct Failed') ||
-    message.includes('CORS') ||
-    message.includes('No authentication token - user not logged in') ||
-    message.includes('Failed to load') ||
-    message.includes('No active session found')
+    message.includes('contentWindow') ||
+    message.includes('Cannot listen to the event') ||
+    (message.includes('TradingView') && message.includes('iframe'))
   ) {
-    return; // Suppress these specific warnings
+    return; // Suppress ONLY TradingView widget warnings
   }
-  originalConsoleWarn(...args);
-};
-
-console.log = (...args) => {
-  // Suppress timeout messages (they are already throttled, but suppress completely)
-  const message = args[0]?.toString() || '';
-  if (
-    message.includes('Backend Timeout') ||
-    message.includes('Request took too long')
-  ) {
-    return; // Suppress these messages
-  }
-  originalConsoleLog(...args);
+  originalConsoleWarn(...args); // Show all other warnings
 };
 
 export default function App() {

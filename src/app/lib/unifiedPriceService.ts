@@ -38,7 +38,7 @@ class UnifiedPriceService {
    * ✅ NORMALIZE SYMBOL - Ensure consistent format
    */
   private normalizeSymbol(symbol: string): string {
-    // Remove exchange prefix
+    // Remove exchange prefix (e.g., BINANCE:BTCUSDT → BTCUSDT)
     let clean = symbol
       .replace('BINANCE:', '')
       .replace('BITSTAMP:', '')
@@ -53,9 +53,14 @@ class UnifiedPriceService {
       .toUpperCase()
       .trim();
 
-    // Convert USDT to USD for our backend
-    if (clean.endsWith('USDT')) {
-      clean = clean.replace('USDT', 'USD');
+    // ✅ Map common variations to standard symbols
+    // XAUUSD → GOLD (for consistent pricing)
+    if (clean === 'XAUUSD') {
+      return 'GOLD';
+    }
+    // XAGUSD → SILVER
+    if (clean === 'XAGUSD') {
+      return 'SILVER';
     }
 
     return clean;

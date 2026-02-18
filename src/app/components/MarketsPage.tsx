@@ -347,15 +347,20 @@ export function MarketsPage() {
       closedAt: new Date().toISOString()
     };
 
+    // ✅ FIX: Calculate stats BEFORE setState to avoid scope issues
+    let newWinRate = 0;
+    let newTotalTrades = 0;
+    let newTotalProfit = 0;
+
     // ✅ CRITICAL FIX: Use functional setState to avoid stale state
     setHistory(prevHistory => {
       const updatedHistory = [trade, ...prevHistory];
       
       // Calculate stats based on NEW history
-      const newTotalTrades = updatedHistory.length;
+      newTotalTrades = updatedHistory.length;
       const wins = updatedHistory.filter(h => h.result === 'win').length;
-      const newWinRate = newTotalTrades > 0 ? (wins / newTotalTrades) * 100 : 0;
-      const newTotalProfit = updatedHistory.reduce((sum, h) => sum + h.profit, 0);
+      newWinRate = newTotalTrades > 0 ? (wins / newTotalTrades) * 100 : 0;
+      newTotalProfit = updatedHistory.reduce((sum, h) => sum + h.profit, 0);
       
       // Update account stats with calculated values
       setDemoAccount(prev => ({
@@ -594,6 +599,15 @@ export function MarketsPage() {
                   key={selectedSymbol} // ✅ Force re-mount when symbol changes
                   symbol={selectedSymbol}
                   theme="dark"
+                  onPriceUpdate={(price) => {
+                    // ✅ Update price from TradingView chart directly
+                    // This ensures EXACT MATCH for ALL symbols (GOLD, SILVER, FOREX, etc)
+                    console.log(`📊 [MarketsPage] Received price from TradingView chart: ${selectedSymbol} = $${price.toFixed(2)}`);
+                    setCurrentPrice(prevPrice => {
+                      setPreviousPrice(prevPrice);
+                      return price;
+                    });
+                  }}
                 />
               </div>
               

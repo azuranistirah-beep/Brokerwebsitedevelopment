@@ -64,9 +64,9 @@ const ALL_SYMBOLS: SymbolOption[] = [
   { symbol: "FX:EURJPY", name: "EUR/JPY", category: "Forex" },
   { symbol: "FX:GBPJPY", name: "GBP/JPY", category: "Forex" },
   
-  // Commodities
-  { symbol: "TVC:GOLD", name: "Gold", category: "Commodities" },
-  { symbol: "TVC:SILVER", name: "Silver", category: "Commodities" },
+  // Commodities (✅ FIXED: Use OANDA symbols for ACCURATE spot prices!)
+  { symbol: "OANDA:XAUUSD", name: "Gold (XAU/USD)", category: "Commodities" }, // ✅ Spot Gold Price
+  { symbol: "OANDA:XAGUSD", name: "Silver (XAG/USD)", category: "Commodities" }, // ✅ Spot Silver Price
   { symbol: "TVC:USOIL", name: "Crude Oil WTI", category: "Commodities" },
   { symbol: "TVC:UKOIL", name: "Brent Crude Oil", category: "Commodities" },
   

@@ -16,6 +16,13 @@ export function TickerTape({ colorTheme = "light" }: TickerTapeProps) {
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-ticker-tape.js";
     script.async = true;
+    
+    // ✅ Add error handling for TradingView widget
+    script.onerror = (error) => {
+      console.warn('⚠️ [TickerTape] Failed to load TradingView widget script (this is normal if offline):', error);
+      // Silently fail - don't crash the app
+    };
+    
     script.innerHTML = JSON.stringify({
       symbols: [
         {

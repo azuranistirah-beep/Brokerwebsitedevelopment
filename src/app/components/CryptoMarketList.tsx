@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { TrendingUp, TrendingDown, Star } from "lucide-react";
 import { useNavigate } from "react-router";
-import { projectId, publicAnonKey } from "/utils/supabase/info";
+import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 
 interface CryptoData {
   rank: number;
@@ -522,31 +522,31 @@ export function CryptoMarketList() {
   return (
     <Card className="border-slate-800 bg-slate-900 overflow-hidden">
       {/* Header Stats */}
-      <div className="p-6 border-b border-slate-800">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="p-3 sm:p-4 md:p-6 border-b border-slate-800">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
           <div>
-            <div className="text-xs text-slate-400 mb-1">Market Cap</div>
-            <div className="text-xl font-bold text-white">
+            <div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Market Cap</div>
+            <div className="text-sm sm:text-lg md:text-xl font-bold text-white">
               {formatNumber(cryptoData.reduce((sum, coin) => sum + coin.market_cap, 0))}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400 mb-1">24h Volume</div>
-            <div className="text-xl font-bold text-white">
+            <div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">24h Volume</div>
+            <div className="text-sm sm:text-lg md:text-xl font-bold text-white">
               {formatNumber(cryptoData.reduce((sum, coin) => sum + coin.total_volume, 0))}
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400 mb-1">BTC Dominance</div>
-            <div className="text-xl font-bold text-white">
+            <div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">BTC Dominance</div>
+            <div className="text-sm sm:text-lg md:text-xl font-bold text-white">
               {cryptoData.length > 0 
                 ? ((cryptoData[0].market_cap / cryptoData.reduce((sum, coin) => sum + coin.market_cap, 0)) * 100).toFixed(2)
                 : '0'}%
             </div>
           </div>
           <div>
-            <div className="text-xs text-slate-400 mb-1">Total Coins</div>
-            <div className="text-xl font-bold text-white">{cryptoData.length}</div>
+            <div className="text-[10px] sm:text-xs text-slate-400 mb-0.5 sm:mb-1">Total Coins</div>
+            <div className="text-sm sm:text-lg md:text-xl font-bold text-white">{cryptoData.length}</div>
           </div>
         </div>
       </div>
@@ -556,16 +556,16 @@ export function CryptoMarketList() {
         <table className="w-full">
           <thead className="bg-slate-900 border-b border-slate-800 sticky top-0">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">#</th>
-              <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Price</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">1h %</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">24h %</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">7d %</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Market Cap</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Volume(24h)</th>
-              <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">Circulating Supply</th>
-              <th className="px-4 py-3 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">Last 7 Days</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider">#</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-left text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider">Name</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider">Price</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider hidden sm:table-cell">1h %</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider">24h %</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider hidden md:table-cell">7d %</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider hidden lg:table-cell">Market Cap</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider hidden xl:table-cell">Volume(24h)</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-right text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider hidden xl:table-cell">Circulating Supply</th>
+              <th className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 text-center text-[10px] sm:text-xs font-medium text-slate-400 uppercase tracking-wider hidden lg:table-cell">Last 7 Days</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
@@ -576,8 +576,8 @@ export function CryptoMarketList() {
                 onClick={() => handleRowClick(crypto)}
               >
                 {/* Star & Rank */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-2">
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -586,34 +586,34 @@ export function CryptoMarketList() {
                       className="text-slate-500 hover:text-yellow-400 transition-colors"
                     >
                       <Star 
-                        className={`h-4 w-4 ${watchlist.includes(crypto.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} 
+                        className={`h-3 w-3 sm:h-4 sm:w-4 ${watchlist.includes(crypto.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} 
                       />
                     </button>
-                    <span className="text-slate-400 font-medium">{((currentPage - 1) * 100) + index + 1}</span>
+                    <span className="text-slate-400 font-medium text-[11px] sm:text-xs md:text-sm">{((currentPage - 1) * 100) + index + 1}</span>
                   </div>
                 </td>
 
                 {/* Name & Symbol */}
-                <td className="px-4 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <img 
                       src={crypto.image} 
                       alt={crypto.name} 
-                      className="h-8 w-8 rounded-full"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://via.placeholder.com/32?text=?';
-                      }}
+                      className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 rounded-full flex-shrink-0"
+                      loading="lazy"
+                      width="32"
+                      height="32"
                     />
-                    <div>
-                      <div className="font-bold text-white">{crypto.name}</div>
-                      <div className="text-xs text-slate-400">{crypto.symbol.toUpperCase()}</div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-white text-xs sm:text-sm md:text-base truncate">{crypto.name}</div>
+                      <div className="text-[10px] sm:text-xs text-slate-400">{crypto.symbol.toUpperCase()}</div>
                     </div>
                   </div>
                 </td>
 
                 {/* Price */}
-                <td className="px-4 py-4 whitespace-nowrap text-right">
-                  <div className={`font-bold transition-all duration-300 ${
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-right">
+                  <div className={`font-bold transition-all duration-300 text-xs sm:text-sm md:text-base ${
                     crypto.previous_price && crypto.current_price > crypto.previous_price
                       ? 'text-green-400 animate-pulse'
                       : crypto.previous_price && crypto.current_price < crypto.previous_price
@@ -624,73 +624,73 @@ export function CryptoMarketList() {
                   </div>
                 </td>
 
-                {/* 1h % */}
-                <td className="px-4 py-4 whitespace-nowrap text-right">
-                  <div className={`flex items-center justify-end gap-1 ${
+                {/* 1h % - Hidden on mobile */}
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-right hidden sm:table-cell">
+                  <div className={`flex items-center justify-end gap-0.5 sm:gap-1 ${
                     crypto.price_change_percentage_1h_in_currency >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {crypto.price_change_percentage_1h_in_currency >= 0 ? (
-                      <TrendingUp className="h-3 w-3" />
+                      <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     ) : (
-                      <TrendingDown className="h-3 w-3" />
+                      <TrendingDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     )}
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[11px] sm:text-xs md:text-sm">
                       {Math.abs(crypto.price_change_percentage_1h_in_currency || 0).toFixed(2)}%
                     </span>
                   </div>
                 </td>
 
                 {/* 24h % */}
-                <td className="px-4 py-4 whitespace-nowrap text-right">
-                  <div className={`flex items-center justify-end gap-1 ${
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-right">
+                  <div className={`flex items-center justify-end gap-0.5 sm:gap-1 ${
                     crypto.price_change_percentage_24h_in_currency >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {crypto.price_change_percentage_24h_in_currency >= 0 ? (
-                      <TrendingUp className="h-3 w-3" />
+                      <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     ) : (
-                      <TrendingDown className="h-3 w-3" />
+                      <TrendingDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     )}
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[11px] sm:text-xs md:text-sm">
                       {Math.abs(crypto.price_change_percentage_24h_in_currency || 0).toFixed(2)}%
                     </span>
                   </div>
                 </td>
 
-                {/* 7d % */}
-                <td className="px-4 py-4 whitespace-nowrap text-right">
-                  <div className={`flex items-center justify-end gap-1 ${
+                {/* 7d % - Hidden on mobile/tablet */}
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-right hidden md:table-cell">
+                  <div className={`flex items-center justify-end gap-0.5 sm:gap-1 ${
                     crypto.price_change_percentage_7d_in_currency >= 0 ? 'text-green-400' : 'text-red-400'
                   }`}>
                     {crypto.price_change_percentage_7d_in_currency >= 0 ? (
-                      <TrendingUp className="h-3 w-3" />
+                      <TrendingUp className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     ) : (
-                      <TrendingDown className="h-3 w-3" />
+                      <TrendingDown className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                     )}
-                    <span className="font-semibold">
+                    <span className="font-semibold text-[11px] sm:text-xs md:text-sm">
                       {Math.abs(crypto.price_change_percentage_7d_in_currency || 0).toFixed(2)}%
                     </span>
                   </div>
                 </td>
 
-                {/* Market Cap */}
-                <td className="px-4 py-4 whitespace-nowrap text-right">
-                  <div className="text-white font-medium">{formatNumber(crypto.market_cap)}</div>
+                {/* Market Cap - Hidden on mobile/tablet */}
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-right hidden lg:table-cell">
+                  <div className="text-white font-medium text-xs sm:text-sm">{formatNumber(crypto.market_cap)}</div>
                 </td>
 
-                {/* Volume */}
-                <td className="px-4 py-4 whitespace-nowrap text-right">
-                  <div className="text-white font-medium">{formatNumber(crypto.total_volume)}</div>
+                {/* Volume - Hidden on smaller screens */}
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-right hidden xl:table-cell">
+                  <div className="text-white font-medium text-xs sm:text-sm">{formatNumber(crypto.total_volume)}</div>
                 </td>
 
-                {/* Circulating Supply */}
-                <td className="px-4 py-4 whitespace-nowrap text-right">
-                  <div className="text-slate-400 text-sm">
+                {/* Circulating Supply - Hidden on smaller screens */}
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-right hidden xl:table-cell">
+                  <div className="text-slate-400 text-[11px] sm:text-xs">
                     {formatSupply(crypto.circulating_supply, crypto.symbol)}
                   </div>
                 </td>
 
-                {/* Sparkline */}
-                <td className="px-4 py-4 whitespace-nowrap text-center">
+                {/* Sparkline - Hidden on mobile/tablet */}
+                <td className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 whitespace-nowrap text-center hidden lg:table-cell">
                   {renderSparkline(crypto.sparkline_in_7d?.price || [])}
                 </td>
               </tr>

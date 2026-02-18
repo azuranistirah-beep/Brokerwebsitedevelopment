@@ -341,55 +341,67 @@ export function KYCPage() {
                 <Label className="text-lg">Submitted Documents</Label>
                 
                 <div className="grid grid-cols-3 gap-4">
+                  {/* ID Front */}
                   <div>
                     <Label className="text-gray-400 text-sm">ID Front</Label>
-                    <div
-                      onClick={() => handleViewImage(selectedKYC.idFront)}
-                      className="mt-2 cursor-pointer relative group aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-purple-500 transition-colors"
-                    >
-                      <img
-                        src={selectedKYC.idFront}
-                        alt="ID Front"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-white" />
+                    {selectedKYC.idFront && (
+                      <div
+                        onClick={() => handleViewImage(selectedKYC.idFront)}
+                        className="mt-2 cursor-pointer relative group aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-purple-500 transition-colors"
+                      >
+                        <img
+                          src={selectedKYC.idFront}
+                          alt="ID Front"
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ImageIcon className="w-8 h-8 text-white" />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
+                  {/* ID Back */}
                   <div>
-                    <Label className="text-gray-400 text-sm">ID Back</Label>
-                    <div
-                      onClick={() => handleViewImage(selectedKYC.idBack)}
-                      className="mt-2 cursor-pointer relative group aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-purple-500 transition-colors"
-                    >
-                      <img
-                        src={selectedKYC.idBack}
-                        alt="ID Back"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-white" />
+                    <Label className="text-gray-400 mb-2 block">ID Card (Back)</Label>
+                    {selectedKYC.idBack && (
+                      <div
+                        onClick={() => handleViewImage(selectedKYC.idBack)}
+                        className="mt-2 cursor-pointer relative group aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-purple-500 transition-colors"
+                      >
+                        <img
+                          src={selectedKYC.idBack}
+                          alt="ID Back"
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ImageIcon className="w-8 h-8 text-white" />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
+                  {/* Selfie */}
                   <div>
-                    <Label className="text-gray-400 text-sm">Selfie</Label>
-                    <div
-                      onClick={() => handleViewImage(selectedKYC.selfie)}
-                      className="mt-2 cursor-pointer relative group aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-purple-500 transition-colors"
-                    >
-                      <img
-                        src={selectedKYC.selfie}
-                        alt="Selfie"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ImageIcon className="w-8 h-8 text-white" />
+                    <Label className="text-gray-400 mb-2 block">Selfie with ID</Label>
+                    {selectedKYC.selfie && (
+                      <div
+                        onClick={() => handleViewImage(selectedKYC.selfie)}
+                        className="mt-2 cursor-pointer relative group aspect-video bg-slate-800 rounded-lg overflow-hidden border border-slate-700 hover:border-purple-500 transition-colors"
+                      >
+                        <img
+                          src={selectedKYC.selfie}
+                          alt="Selfie"
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ImageIcon className="w-8 h-8 text-white" />
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>

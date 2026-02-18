@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface TradingChartProps {
   symbol: string;
@@ -14,7 +14,8 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
   const widgetRef = useRef<any>(null);
   const containerIdRef = useRef(`tradingview_${Math.random().toString(36).substring(7)}`);
   const isCleaningUpRef = useRef(false);
-
+  const [scriptStatus, setScriptStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  
   const mapInterval = (i: string) => {
     if (i.endsWith("m")) return i.replace("m", "");
     if (i.endsWith("h")) return (parseInt(i) * 60).toString();
@@ -28,36 +29,7 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
   useEffect(() => {
     isCleaningUpRef.current = false;
     
-    // Check if script is already in head
-    if (!document.getElementById("tv-widget-script")) {
-      const script = document.createElement("script");
-      script.id = "tv-widget-script";
-      script.src = "https://s3.tradingview.com/tv.js";
-      script.async = true;
-      script.onload = () => {
-        scriptLoadedRef.current = true;
-        initWidget();
-      };
-      document.head.appendChild(script);
-    } else {
-      if ((window as any).TradingView) {
-        scriptLoadedRef.current = true;
-        initWidget();
-      } else {
-        // If script exists but TV not ready, wait for it
-        const checkTv = setInterval(() => {
-          if ((window as any).TradingView) {
-            clearInterval(checkTv);
-            scriptLoadedRef.current = true;
-            initWidget();
-          }
-        }, 100);
-        
-        // Cleanup interval if component unmounts
-        return () => clearInterval(checkTv);
-      }
-    }
-
+    // ✅ Define initWidget first
     function initWidget() {
       if (isCleaningUpRef.current) return;
       if (!containerRef.current || !(window as any).TradingView) return;
@@ -68,13 +40,12 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
           containerRef.current.innerHTML = "";
         }
       } catch (error) {
-        console.warn("⚠️ [TradingChart] Container clear error (safe to ignore):", error);
+        // Silent fail
       }
 
-      console.log(`🎨 [TradingChart] Initializing TradingView widget for ${symbol}`);
+      setScriptStatus('ready');
 
-      // ✅ USE STANDARD TRADINGVIEW WIDGET (No custom datafeed)
-      // TradingView will handle its own data from their servers
+      // ✅ ULTRA-FAST TRADINGVIEW WIDGET - NO LOADING SCREEN!
       widgetRef.current = new (window as any).TradingView.widget({
         autosize: true,
         symbol: symbol,
@@ -83,65 +54,256 @@ export function TradingChart({ symbol, interval = "D", theme = "light", onPriceU
         theme: theme,
         style: "1",
         locale: "en",
-        toolbar_bg: "#f1f3f6",
+        toolbar_bg: theme === "dark" ? "#0f172a" : "#f1f3f6",
         enable_publishing: false,
         allow_symbol_change: false,
         container_id: containerRef.current.id,
-        studies: [
-          "MASimple@tv-basicstudies",
-          "RSI@tv-basicstudies"
-        ],
-        show_popup_button: true,
-        popup_width: "1000",
-        popup_height: "650",
+        
+        studies: [],
+        
+        show_popup_button: false,
         hide_side_toolbar: false,
+        withdateranges: true,
+        hide_top_toolbar: false,
+        
+        // ✅ ENABLE ALL TOOLBAR FEATURES - Show drawing tools, indicators, timeframes, etc
         disabled_features: [
-          "header_symbol_search",
-          "symbol_search_hot_key"
+          "widget_logo",
+          "countdown",
         ],
+        
         enabled_features: [
-          "hide_left_toolbar_by_default"
+          "side_toolbar_in_fullscreen_mode",
         ],
-        onChartReady: () => {
-          console.log("✅ [TradingChart] Chart Ready for:", symbol);
-        }
+        
+        loading_screen: { 
+          backgroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+          foregroundColor: theme === "dark" ? "#0f172a" : "#ffffff",
+        },
+        
+        overrides: {
+          "mainSeriesProperties.showCountdown": false,
+          "paneProperties.background": theme === "dark" ? "#0f172a" : "#ffffff",
+          "paneProperties.backgroundType": "solid",
+        },
+        
+        visible_range: {
+          from: Date.now() / 1000 - (30 * 24 * 60 * 60),
+          to: Date.now() / 1000,
+        },
       });
-    }
 
-    // Re-init on prop change if script already loaded
-    if (scriptLoadedRef.current) {
-      initWidget();
+      // ✅ MONITOR PRICE UPDATES FROM TRADINGVIEW CHART
+      if (onPriceUpdate) {
+        try {
+          widgetRef.current.onChartReady(() => {
+            console.log(`📊 [TradingChart] Chart ready for ${symbol}, setting up price monitoring...`);
+            
+            // ✅ CONTINUOUS PRICE MONITORING - Poll every 2 seconds
+            const priceMonitorInterval = setInterval(() => {
+              try {
+                if (widgetRef.current && widgetRef.current.activeChart) {
+                  widgetRef.current.activeChart().exportData({ includeTime: true, includeSeries: true }, (data: any) => {
+                    if (data && data.data && data.data.length > 0) {
+                      // Get the last bar (most recent price)
+                      const lastBar = data.data[data.data.length - 1];
+                      if (lastBar && lastBar.close !== undefined) {
+                        const price = parseFloat(lastBar.close);
+                        if (price > 0) {
+                          console.log(`💰 [TradingChart] Live price from chart: ${symbol} = $${price.toFixed(2)}`);
+                          onPriceUpdate(price);
+                        }
+                      }
+                    }
+                  });
+                }
+              } catch (error) {
+                console.warn(`⚠️ [TradingChart] Error polling price:`, error);
+              }
+            }, 2000); // Poll every 2 seconds
+
+            // Store interval ref for cleanup
+            (widgetRef.current as any).__priceMonitorInterval = priceMonitorInterval;
+
+            // Try to get initial price immediately
+            try {
+              setTimeout(() => {
+                if (widgetRef.current && widgetRef.current.activeChart) {
+                  widgetRef.current.activeChart().exportData({ includeTime: true, includeSeries: true }, (data: any) => {
+                    if (data && data.data && data.data.length > 0) {
+                      const lastBar = data.data[data.data.length - 1];
+                      if (lastBar && lastBar.close !== undefined) {
+                        const price = parseFloat(lastBar.close);
+                        if (price > 0) {
+                          console.log(`💰 [TradingChart] Initial price from chart: ${symbol} = $${price.toFixed(2)}`);
+                          onPriceUpdate(price);
+                        }
+                      }
+                    }
+                  });
+                }
+              }, 1000); // Wait 1 second for chart to fully load
+            } catch (error) {
+              console.warn(`⚠️ [TradingChart] Error getting initial price:`, error);
+            }
+          });
+        } catch (error) {
+          console.warn(`⚠️ [TradingChart] Error setting up price monitoring:`, error);
+        }
+      }
     }
     
-    // Cleanup on unmount or symbol change
-    return () => {
-      isCleaningUpRef.current = true;
-      console.log("🛑 [TradingChart] Cleanup");
+    // ✅ IMPROVED LOADING STRATEGY
+    const initWithRetry = () => {
+      if ((window as any).TradingView) {
+        scriptLoadedRef.current = true;
+        setTimeout(() => initWidget(), 0);
+        return true;
+      }
+      return false;
+    };
+    
+    // Try immediate init first
+    if (initWithRetry()) {
+      // Success! Script was already loaded
+      // Return cleanup function
+      return () => {
+        isCleaningUpRef.current = true;
+        
+        if (widgetRef.current) {
+          try {
+            // ✅ Clear price monitor interval
+            if ((widgetRef.current as any).__priceMonitorInterval) {
+              clearInterval((widgetRef.current as any).__priceMonitorInterval);
+            }
+            
+            if (typeof widgetRef.current.remove === 'function') {
+              widgetRef.current.remove();
+            }
+          } catch (error) {
+            // Silent
+          }
+          widgetRef.current = null;
+        }
+        
+        if (containerRef.current && containerRef.current.parentNode) {
+          try {
+            containerRef.current.innerHTML = "";
+          } catch (error) {
+            // Silent
+          }
+        }
+      };
+    }
+    
+    // Fallback: Check periodically with aggressive retry
+    let attempts = 0;
+    const maxAttempts = 500; // 500 * 10ms = 5 seconds max
+    
+    const checkTv = setInterval(() => {
+      attempts++;
       
-      // Remove widget with better error handling
+      if (initWithRetry()) {
+        clearInterval(checkTv);
+        // Only log in development
+        if (import.meta.env.DEV) {
+          console.log("✅ TradingView ready after", attempts * 10, "ms");
+        }
+        return;
+      }
+      
+      // After 2 seconds, try fallback load
+      if (attempts === 200 && !document.getElementById("tv-widget-script-fallback")) {
+        if (import.meta.env.DEV) {
+          console.log("🔄 Loading TradingView fallback script...");
+        }
+        const script = document.createElement("script");
+        script.id = "tv-widget-script-fallback";
+        script.src = "https://s3.tradingview.com/tv.js";
+        script.async = true;
+        script.onload = () => {
+          if (import.meta.env.DEV) {
+            console.log("✅ Fallback script loaded!");
+          }
+          scriptLoadedRef.current = true;
+          if (initWithRetry()) {
+            clearInterval(checkTv);
+          }
+        };
+        script.onerror = () => {
+          if (import.meta.env.DEV) {
+            console.error("❌ Failed to load TradingView script");
+          }
+          setScriptStatus('error');
+        };
+        document.head.appendChild(script);
+      }
+      
+      // Give up after 5 seconds
+      if (attempts >= maxAttempts) {
+        clearInterval(checkTv);
+        if (import.meta.env.DEV) {
+          console.error("❌ TradingView script timeout");
+        }
+        setScriptStatus('error');
+      }
+    }, 10);
+    
+    // Return cleanup
+    return () => {
+      clearInterval(checkTv);
+      isCleaningUpRef.current = true;
+      
       if (widgetRef.current) {
         try {
-          // Check if widget has remove method and iframe still exists
+          // ✅ Clear price monitor interval
+          if ((widgetRef.current as any).__priceMonitorInterval) {
+            clearInterval((widgetRef.current as any).__priceMonitorInterval);
+          }
+          
           if (typeof widgetRef.current.remove === 'function') {
             widgetRef.current.remove();
           }
         } catch (error) {
-          // Silently handle cleanup errors as they don't affect functionality
-          // These typically happen when the DOM is already cleaned up
+          // Silent
         }
         widgetRef.current = null;
       }
       
-      // Also clear the container if it still exists
       if (containerRef.current && containerRef.current.parentNode) {
         try {
           containerRef.current.innerHTML = "";
         } catch (error) {
-          // Silently ignore
+          // Silent
         }
       }
     };
   }, [symbol, tvInterval, theme]);
 
-  return <div ref={containerRef} id={containerIdRef.current} style={{ height: "100%", width: "100%" }} />;
+  return (
+    <div style={{ height: "100%", width: "100%", position: "relative" }}>
+      {scriptStatus === 'error' && (
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: theme === "dark" ? "#0f172a" : "#ffffff",
+          color: theme === "dark" ? "#94a3b8" : "#64748b",
+          fontSize: "14px",
+        }}>
+          Chart loading failed. Please refresh the page.
+        </div>
+      )}
+      <div 
+        ref={containerRef} 
+        id={containerIdRef.current} 
+        style={{ height: "100%", width: "100%", opacity: scriptStatus === 'error' ? 0 : 1 }} 
+      />
+    </div>
+  );
 }

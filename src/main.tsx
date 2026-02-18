@@ -4,8 +4,14 @@ import App from './app/App';
 import './styles/index.css';
 import { clearAllCaches } from './utils/cacheManager';
 
-console.log('🚀 Investoft Platform Initializing...');
-console.log('📦 React Version:', React.version);
+// ✅ PRODUCTION: Disable console logs for better performance and security
+if (import.meta.env.PROD) {
+  console.log = () => {};
+  console.warn = () => {};
+  console.info = () => {};
+  console.debug = () => {};
+  // Keep console.error for critical issues
+}
 
 // Error boundary component
 class ErrorBoundary extends React.Component<
@@ -22,7 +28,10 @@ class ErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error boundary caught:', error, errorInfo);
+    // Only log in development
+    if (import.meta.env.DEV) {
+      console.error('Error boundary caught:', error, errorInfo);
+    }
   }
 
   render() {
@@ -47,7 +56,6 @@ class ErrorBoundary extends React.Component<
           </p>
           <button
             onClick={() => {
-              // Clear cache and reload
               clearAllCaches();
               window.location.reload();
             }}
