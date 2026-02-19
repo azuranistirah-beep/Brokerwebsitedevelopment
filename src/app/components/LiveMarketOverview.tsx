@@ -4,15 +4,12 @@ import { Badge } from "./ui/badge";
 import { Card } from "./ui/card";
 import { useState, useEffect } from "react";
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
-import { unifiedPriceService } from "../lib/unifiedPriceService";
+import { usePrices } from "../context/PriceContext";
 
 interface MarketItem {
   symbol: string;
-  price: number;
-  change: number;
   name?: string;
   type: string;
-  basePrice?: number;
 }
 
 const ASSET_NAMES: Record<string, string> = {
@@ -28,93 +25,68 @@ const ASSET_NAMES: Record<string, string> = {
   "TSLA": "Tesla Inc"
 };
 
-// Initial market data - will be updated via real-time subscriptions
-const INITIAL_MARKET_DATA: MarketItem[] = [
-  // Crypto (will get real-time updates)
-  { symbol: "BTCUSD", price: 68000, change: 0, name: "Bitcoin", type: "crypto", basePrice: 68000 },
-  { symbol: "ETHUSD", price: 3400, change: 0, name: "Ethereum", type: "crypto", basePrice: 3400 },
-  { symbol: "BNBUSD", price: 610, change: 0, name: "BNB", type: "crypto", basePrice: 610 },
-  { symbol: "SOLUSD", price: 145, change: 0, name: "Solana", type: "crypto", basePrice: 145 },
-  { symbol: "XRPUSD", price: 1.40, change: 0, name: "XRP", type: "crypto", basePrice: 1.40 },
+// Market data - will get real-time updates from PriceContext
+const MARKET_ITEMS: MarketItem[] = [
+  // Crypto
+  { symbol: "BTCUSD", name: "Bitcoin", type: "crypto" },
+  { symbol: "ETHUSD", name: "Ethereum", type: "crypto" },
+  { symbol: "BNBUSD", name: "BNB", type: "crypto" },
+  { symbol: "SOLUSD", name: "Solana", type: "crypto" },
+  { symbol: "XRPUSD", name: "XRP", type: "crypto" },
   
   // Forex
-  { symbol: "EURUSD", price: 1.0845, change: -0.15, name: "EUR/USD", type: "forex", basePrice: 1.0845 },
-  { symbol: "GBPUSD", price: 1.2634, change: 0.23, name: "GBP/USD", type: "forex", basePrice: 1.2634 },
-  { symbol: "USDJPY", price: 149.45, change: 0.45, name: "USD/JPY", type: "forex", basePrice: 149.45 },
+  { symbol: "EURUSD", name: "EUR/USD", type: "forex" },
+  { symbol: "GBPUSD", name: "GBP/USD", type: "forex" },
+  { symbol: "USDJPY", name: "USD/JPY", type: "forex" },
   
   // Indices
-  { symbol: "SPX500", price: 4850.45, change: 0.78, name: "S&P 500", type: "indices", basePrice: 4850.45 },
-  { symbol: "NSX100", price: 16420.30, change: 1.23, name: "Nasdaq 100", type: "indices", basePrice: 16420.30 },
+  { symbol: "SPX500", name: "S&P 500", type: "indices" },
+  { symbol: "NSX100", name: "Nasdaq 100", type: "indices" },
   
   // Commodities
-  { symbol: "GOLD", price: 2345.60, change: 0.56, name: "Gold", type: "commodities", basePrice: 2345.60 },
-  { symbol: "SILVER", price: 24.85, change: 1.12, name: "Silver", type: "commodities", basePrice: 24.85 },
+  { symbol: "GOLD", name: "Gold", type: "commodities" },
+  { symbol: "SILVER", name: "Silver", type: "commodities" },
 ];
 
 export function LiveMarketOverview() {
-  const [marketData, setMarketData] = useState<MarketItem[]>(INITIAL_MARKET_DATA);
+  const { prices } = usePrices(); // ✅ USE SHARED PRICE CONTEXT
   const [flashingSymbols, setFlashingSymbols] = useState<Set<string>>(new Set());
 
-  // Subscribe to real-time crypto price updates
+  // Track price changes for flash effect
   useEffect(() => {
-    console.log('🔌 [LiveMarketOverview] Setting up real-time price subscriptions...');
+    const newFlashing = new Set<string>();
     
-    const unsubscribeFunctions: (() => void)[] = [];
-    
-    // Subscribe to crypto symbols
-    const cryptoSymbols = INITIAL_MARKET_DATA.filter(item => item.type === 'crypto');
-    
-    cryptoSymbols.forEach((item) => {
-      const unsubscribe = unifiedPriceService.subscribe(item.symbol, (priceData) => {
-        console.log(`💰 [LiveMarketOverview] Real-time update: ${item.symbol} = $${priceData.price.toFixed(2)}`);
-        
-        // Add flash effect
-        setFlashingSymbols(prev => new Set(prev).add(item.symbol));
-        setTimeout(() => {
-          setFlashingSymbols(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(item.symbol);
-            return newSet;
-          });
-        }, 500);
-        
-        // Update market data
-        setMarketData((prevData) => {
-          return prevData.map((dataItem) => {
-            if (dataItem.symbol === item.symbol) {
-              const basePrice = dataItem.basePrice || dataItem.price;
-              const change = basePrice > 0 ? ((priceData.price - basePrice) / basePrice) * 100 : 0;
-              
-              return {
-                ...dataItem,
-                price: priceData.price,
-                change: Number(change.toFixed(2)),
-              };
-            }
-            return dataItem;
-          });
-        });
-      });
-      
-      unsubscribeFunctions.push(unsubscribe);
+    MARKET_ITEMS.forEach((item) => {
+      const priceData = prices[item.symbol];
+      if (priceData && priceData.timestamp) {
+        const timeSinceUpdate = Date.now() - priceData.timestamp;
+        if (timeSinceUpdate < 500) {
+          newFlashing.add(item.symbol);
+        }
+      }
     });
     
-    console.log(`✅ [LiveMarketOverview] Subscribed to ${cryptoSymbols.length} crypto symbols`);
-    
-    // Cleanup
-    return () => {
-      console.log('🔌 [LiveMarketOverview] Cleaning up subscriptions...');
-      unsubscribeFunctions.forEach(unsub => unsub());
-    };
-  }, []);
+    if (newFlashing.size > 0) {
+      setFlashingSymbols(newFlashing);
+      setTimeout(() => {
+        setFlashingSymbols(new Set());
+      }, 500);
+    }
+  }, [prices]);
+
+  // Get price data for a symbol
+  const getPriceData = (symbol: string) => {
+    return prices[symbol] || { price: 0, change: 0, changePercent: 0, basePrice: 0, timestamp: 0 };
+  };
 
   return (
     <div className="space-y-6">
       {/* ✨ Top 4 Market Cards with Gradient Borders */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {marketData.slice(0, 4).map((item) => {
+        {MARKET_ITEMS.slice(0, 4).map((item) => {
           const isFlashing = flashingSymbols.has(item.symbol);
-          const isPositive = item.change >= 0;
+          const priceData = getPriceData(item.symbol);
+          const isPositive = priceData.changePercent >= 0;
           
           return (
             <Card 
@@ -136,7 +108,7 @@ export function LiveMarketOverview() {
                   <div>
                     <p className="text-sm text-slate-400 mb-1">{item.name || ASSET_NAMES[item.symbol] || item.symbol}</p>
                     <h3 className="text-2xl font-bold text-white">
-                      ${item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      ${priceData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </h3>
                   </div>
                   <div className={`p-2 rounded-lg ${
@@ -151,7 +123,7 @@ export function LiveMarketOverview() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge className={isPositive ? "bg-green-600/20 text-green-400 hover:bg-green-600/20 border border-green-500/20" : "bg-red-600/20 text-red-400 hover:bg-red-600/20 border border-red-500/20"}>
-                    {isPositive ? "+" : ""}{item.change.toFixed(2)}%
+                    {isPositive ? "+" : ""}{priceData.changePercent.toFixed(2)}%
                   </Badge>
                   <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider">{item.type}</span>
                 </div>
@@ -181,11 +153,12 @@ export function LiveMarketOverview() {
               </Badge>
             </div>
             <div className="space-y-3">
-              {marketData
-                .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+              {MARKET_ITEMS
+                .sort((a, b) => Math.abs(getPriceData(b.symbol).changePercent) - Math.abs(getPriceData(a.symbol).changePercent))
                 .slice(0, 5)
                 .map((item, index) => {
-                  const isPositive = item.change >= 0;
+                  const priceData = getPriceData(item.symbol);
+                  const isPositive = priceData.changePercent >= 0;
                   const isFlashing = flashingSymbols.has(item.symbol);
                   
                   return (
@@ -207,11 +180,11 @@ export function LiveMarketOverview() {
                         </div>
                         <div>
                           <p className="font-medium text-white text-sm group-hover/item:text-blue-400 transition-colors">{item.name || ASSET_NAMES[item.symbol] || item.symbol}</p>
-                          <p className="text-xs text-slate-500">${item.price.toFixed(2)}</p>
+                          <p className="text-xs text-slate-500">${priceData.price.toFixed(2)}</p>
                         </div>
                       </div>
                       <Badge className={`${isPositive ? "bg-green-600/20 text-green-400 hover:bg-green-600/20 border border-green-500/20" : "bg-red-600/20 text-red-400 hover:bg-red-600/20 border border-red-500/20"}`}>
-                        {isPositive ? "+" : ""}{item.change.toFixed(2)}%
+                        {isPositive ? "+" : ""}{priceData.changePercent.toFixed(2)}%
                       </Badge>
                     </div>
                   );
@@ -231,7 +204,7 @@ export function LiveMarketOverview() {
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-white text-lg">All Markets</h3>
             <Badge className="bg-purple-600/10 text-purple-400 border border-purple-500/20">
-              {marketData.length} Assets
+              {MARKET_ITEMS.length} Assets
             </Badge>
           </div>
           
@@ -246,8 +219,9 @@ export function LiveMarketOverview() {
                 </tr>
               </thead>
               <tbody>
-                {marketData.map((item, index) => {
-                  const isPositive = item.change >= 0;
+                {MARKET_ITEMS.map((item, index) => {
+                  const priceData = getPriceData(item.symbol);
+                  const isPositive = priceData.changePercent >= 0;
                   const isFlashing = flashingSymbols.has(item.symbol);
                   
                   return (
@@ -276,11 +250,11 @@ export function LiveMarketOverview() {
                         </Badge>
                       </td>
                       <td className="py-4 text-right text-white font-medium">
-                        ${item.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ${priceData.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="py-4 text-right pr-4">
                         <Badge className={`${isPositive ? "bg-green-600/20 text-green-400 border border-green-500/20" : "bg-red-600/20 text-red-400 border border-red-500/20"}`}>
-                          {isPositive ? "+" : ""}{item.change.toFixed(2)}%
+                          {isPositive ? "+" : ""}{priceData.changePercent.toFixed(2)}%
                         </Badge>
                       </td>
                     </tr>

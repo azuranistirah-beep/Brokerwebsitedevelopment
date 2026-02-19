@@ -8,6 +8,15 @@
 // Binance PUBLIC API (no auth required)
 const BINANCE_BASE_URL = 'https://api.binance.com';
 
+// ✅ In-memory cache to reduce API calls and prevent rate limiting
+interface CachedPrice {
+  price: number;
+  timestamp: number;
+}
+
+const priceCache = new Map<string, CachedPrice>();
+const CACHE_TTL = 2000; // 2 seconds cache (same as frontend update interval)
+
 export interface BinanceTicker {
   symbol: string;
   price: number;
@@ -38,7 +47,15 @@ export async function getBinanceCurrentCandleClose(symbol: string): Promise<numb
   try {
     const binanceSymbol = normalizeToBinanceSymbol(symbol);
     
-    console.log(`🕯️ [Binance Kline] Fetching current 1m candle CLOSE for ${binanceSymbol}...`);
+    // ✅ Check cache first
+    const cacheKey = `kline_${binanceSymbol}`;
+    const cachedPrice = priceCache.get(cacheKey);
+    if (cachedPrice && (Date.now() - cachedPrice.timestamp < CACHE_TTL)) {
+      console.log(`💾 [Cache Hit] ${symbol} → $${cachedPrice.price.toFixed(2)}`);
+      return cachedPrice.price;
+    }
+    
+    console.log(`🕯️ [Binance Kline] Fetching current 1m candle CLOSE for ${symbol} → ${binanceSymbol}...`);
     
     // Get the latest 1-minute candle
     const url = `${BINANCE_BASE_URL}/api/v3/klines?symbol=${binanceSymbol}&interval=1m&limit=1`;
@@ -48,12 +65,19 @@ export async function getBinanceCurrentCandleClose(symbol: string): Promise<numb
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0',
       },
-      signal: AbortSignal.timeout(5000), // 5 second timeout
+      signal: AbortSignal.timeout(10000), // ✅ Increased to 10 second timeout
     });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => 'No error details');
       console.warn(`⚠️ [Binance Kline] HTTP ${response.status} for ${binanceSymbol}: ${errorText}`);
+      
+      // Return cached value if available (even if expired)
+      if (cachedPrice) {
+        console.log(`♻️ [Fallback] Using expired cache for ${symbol}: $${cachedPrice.price.toFixed(2)}`);
+        return cachedPrice.price;
+      }
+      
       return null;
     }
 
@@ -65,14 +89,33 @@ export async function getBinanceCurrentCandleClose(symbol: string): Promise<numb
       const candle = data[0];
       const closePrice = parseFloat(candle[4]);
       
-      console.log(`✅ [Binance Kline] ${binanceSymbol} 1m CLOSE: $${closePrice.toFixed(2)} (EXACT TradingView match)`);
+      console.log(`✅ [Binance Kline] ${symbol} (${binanceSymbol}) 1m CLOSE: $${closePrice.toFixed(2)} (EXACT TradingView match)`);
+      
+      // ✅ Cache the result
+      priceCache.set(cacheKey, { price: closePrice, timestamp: Date.now() });
       
       return closePrice;
     }
 
+    console.warn(`⚠️ [Binance Kline] No candle data returned for ${binanceSymbol}`);
     return null;
   } catch (error: any) {
-    console.error(`❌ [Binance Kline] Error for ${symbol}: ${error.message}`);
+    if (error.name === 'TimeoutError' || error.name === 'AbortError') {
+      console.warn(`⚠️ [Binance Kline] Timeout for ${symbol} (10s limit exceeded)`);
+    } else if (error.message?.includes('connection')) {
+      console.warn(`⚠️ [Binance Kline] Connection error for ${symbol} - rate limit or network issue`);
+    } else {
+      console.error(`❌ [Binance Kline] Error for ${symbol}: ${error.message}`);
+    }
+    
+    // ✅ Return cached value if available (even if expired)
+    const cacheKey = `kline_${normalizeToBinanceSymbol(symbol)}`;
+    const cachedPrice = priceCache.get(cacheKey);
+    if (cachedPrice) {
+      console.log(`♻️ [Fallback] Using cached price for ${symbol}: $${cachedPrice.price.toFixed(2)}`);
+      return cachedPrice.price;
+    }
+    
     return null;
   }
 }
@@ -115,39 +158,7 @@ export async function fetchBinanceBookTicker(symbol: string): Promise<BinanceBoo
 }
 
 /**
- * Get latest price (simple and fast)
- * Endpoint: GET /api/v3/ticker/price?symbol=BTCUSDT
- */
-export async function fetchBinancePrice(symbol: string): Promise<{ price: number } | null> {
-  try {
-    const binanceSymbol = normalizeToBinanceSymbol(symbol);
-    const url = `${BINANCE_BASE_URL}/api/v3/ticker/price?symbol=${binanceSymbol}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      signal: AbortSignal.timeout(5000),
-    });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    const data = await response.json();
-    
-    return {
-      price: parseFloat(data.price),
-    };
-  } catch (error: any) {
-    console.error(`❌ [Binance Price] Error for ${symbol}: ${error.message}`);
-    return null;
-  }
-}
-
-/**
- * Get 24hr ticker data
+ * Get 24hr ticker statistics
  * Endpoint: GET /api/v3/ticker/24hr?symbol=BTCUSDT
  */
 export async function fetchBinance24hrTicker(symbol: string): Promise<BinanceTicker | null> {
@@ -223,134 +234,158 @@ export async function fetchBinanceAvgPrice(symbol: string): Promise<number | nul
 function normalizeToBinanceSymbol(symbol: string): string {
   let normalized = symbol.toUpperCase().trim();
   
-  // Remove USD suffix and add USDT
+  // Already in Binance format
+  if (normalized.endsWith('USDT')) {
+    return normalized;
+  }
+  
+  // Map common variations
+  const symbolMap: Record<string, string> = {
+    'BTC': 'BTCUSDT',
+    'BTCUSD': 'BTCUSDT',
+    'BITCOIN': 'BTCUSDT',
+    'ETH': 'ETHUSDT',
+    'ETHUSD': 'ETHUSDT',
+    'ETHEREUM': 'ETHUSDT',
+    'BNB': 'BNBUSDT',
+    'BNBUSD': 'BNBUSDT',
+    'SOL': 'SOLUSDT',
+    'SOLUSD': 'SOLUSDT',
+    'SOLANA': 'SOLUSDT',
+    'XRP': 'XRPUSDT',
+    'XRPUSD': 'XRPUSDT',
+    'ADA': 'ADAUSDT',
+    'ADAUSD': 'ADAUSDT',
+    'CARDANO': 'ADAUSDT',
+    'DOGE': 'DOGEUSDT',
+    'DOGEUSD': 'DOGEUSDT',
+    'DOGECOIN': 'DOGEUSDT',
+    'MATIC': 'MATICUSDT',
+    'MATICUSD': 'MATICUSDT',
+    'POLYGON': 'MATICUSDT',
+    'DOT': 'DOTUSDT',
+    'DOTUSD': 'DOTUSDT',
+    'POLKADOT': 'DOTUSDT',
+    'AVAX': 'AVAXUSDT',
+    'AVAXUSD': 'AVAXUSDT',
+    'AVALANCHE': 'AVAXUSDT',
+  };
+  
+  if (symbolMap[normalized]) {
+    return symbolMap[normalized];
+  }
+  
+  // If ends with USD but not USDT, replace with USDT
   if (normalized.endsWith('USD') && !normalized.endsWith('USDT')) {
-    normalized = normalized.replace('USD', 'USDT');
+    return normalized.replace(/USD$/, 'USDT');
   }
   
-  // If no USDT suffix, add it
-  if (!normalized.includes('USDT') && !normalized.includes('BUSD')) {
-    normalized = `${normalized}USDT`;
-  }
-  
-  return normalized;
+  // Default: add USDT suffix
+  return `${normalized}USDT`;
 }
 
 /**
  * Check if symbol is supported by Binance
  */
 export function isBinanceSymbol(symbol: string): boolean {
+  const upper = symbol.toUpperCase();
+  
+  // Common crypto symbols
   const cryptoSymbols = [
-    'BTC', 'ETH', 'BNB', 'SOL', 'ADA', 'XRP', 'DOGE', 'MATIC', 
-    'TRX', 'DOT', 'LTC', 'AVAX', 'LINK', 'ATOM', 'UNI', 'ETC',
-    'XLM', 'BCH', 'NEAR', 'ALGO', 'FIL', 'SAND', 'MANA', 'AXS'
+    'BTC', 'BTCUSD', 'BITCOIN',
+    'ETH', 'ETHUSD', 'ETHEREUM',
+    'BNB', 'BNBUSD',
+    'SOL', 'SOLUSD', 'SOLANA',
+    'XRP', 'XRPUSD',
+    'ADA', 'ADAUSD', 'CARDANO',
+    'DOGE', 'DOGEUSD', 'DOGECOIN',
+    'MATIC', 'MATICUSD', 'POLYGON',
+    'DOT', 'DOTUSD', 'POLKADOT',
+    'AVAX', 'AVAXUSD', 'AVALANCHE',
   ];
   
-  const cleanSymbol = symbol.replace(/USD(T)?$/i, '').toUpperCase();
-  return cryptoSymbols.includes(cleanSymbol);
+  return cryptoSymbols.some(s => upper.includes(s)) || upper.endsWith('USDT');
 }
 
 /**
- * Get most accurate real-time price (combines multiple sources)
- * Priority: 1m Candle CLOSE (TradingView method) -> Book Ticker -> Latest Price -> Avg Price
+ * Get best available price using waterfall strategy
+ * Priority: 1m Candle CLOSE > Book Ticker > 24hr Ticker > Avg Price
  */
 export async function getBestBinancePrice(symbol: string): Promise<number | null> {
-  // Priority 1: 1m Candle CLOSE (Most accurate - TradingView method)
+  // Priority 1: Current 1-minute candle CLOSE (EXACT TradingView match)
   const candlePrice = await getBinanceCurrentCandleClose(symbol);
-  if (candlePrice) {
+  if (candlePrice !== null) {
     return candlePrice;
   }
   
-  // Priority 2: Book Ticker (Bid/Ask midpoint)
+  console.log(`⚠️ [Binance] Candle failed for ${symbol}, trying book ticker...`);
+  
+  // Priority 2: Book Ticker (best bid/ask)
   const bookTicker = await fetchBinanceBookTicker(symbol);
   if (bookTicker) {
-    return (bookTicker.bidPrice + bookTicker.askPrice) / 2;
+    const midPrice = (bookTicker.bidPrice + bookTicker.askPrice) / 2;
+    console.log(`📊 [Binance Book] ${symbol}: $${midPrice.toFixed(2)} (bid/ask average)`);
+    return midPrice;
   }
   
-  // Priority 3: Latest Price
-  const latestPrice = await fetchBinancePrice(symbol);
-  if (latestPrice) {
-    return latestPrice.price;
+  console.log(`⚠️ [Binance] Book ticker failed for ${symbol}, trying 24hr ticker...`);
+  
+  // Priority 3: 24hr Ticker
+  const ticker24hr = await fetchBinance24hrTicker(symbol);
+  if (ticker24hr) {
+    console.log(`📊 [Binance 24hr] ${symbol}: $${ticker24hr.price.toFixed(2)}`);
+    return ticker24hr.price;
   }
+  
+  console.log(`⚠️ [Binance] 24hr ticker failed for ${symbol}, trying avg price...`);
   
   // Priority 4: Average Price
   const avgPrice = await fetchBinanceAvgPrice(symbol);
   if (avgPrice) {
+    console.log(`📊 [Binance Avg] ${symbol}: $${avgPrice.toFixed(2)}`);
     return avgPrice;
   }
   
+  console.error(`❌ [Binance] All methods failed for ${symbol}`);
   return null;
 }
 
 /**
- * Get detailed ticker with all price info
+ * Fetch single price (alias for getBestBinancePrice)
  */
-export async function getBinanceDetailedTicker(symbol: string): Promise<BinanceTicker | null> {
-  try {
-    // Get 24hr ticker for most data
-    const ticker24hr = await fetchBinance24hrTicker(symbol);
-    if (!ticker24hr) {
-      return null;
-    }
-    
-    // Try to get more accurate current price from 1m candle
-    const currentPrice = await getBinanceCurrentCandleClose(symbol);
-    if (currentPrice) {
-      ticker24hr.price = currentPrice;
-    }
-    
-    return ticker24hr;
-  } catch (error: any) {
-    console.error(`❌ [Binance Detailed Ticker] Error for ${symbol}: ${error.message}`);
-    return null;
-  }
+export async function fetchBinancePrice(symbol: string): Promise<number | null> {
+  return getBestBinancePrice(symbol);
 }
 
 /**
- * Get multiple tickers at once
+ * Fetch all prices for popular cryptocurrencies
+ * Returns Map<symbol, price>
  */
-export async function getBinanceMultipleTickers(symbols: string[]): Promise<Map<string, number>> {
-  const priceMap = new Map<string, number>();
+export async function fetchAllBinancePrices(): Promise<Map<string, number>> {
+  const symbols = [
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 
+    'XRPUSDT', 'ADAUSDT', 'DOGEUSDT', 'MATICUSDT',
+    'DOTUSDT', 'AVAXUSDT'
+  ];
   
-  // Fetch all prices in parallel with retry logic
-  const promises = symbols.map(async (symbol) => {
-    try {
-      const price = await getBestBinancePrice(symbol);
-      if (price) {
-        priceMap.set(symbol, price);
-      }
-    } catch (error: any) {
-      console.error(`❌ [Binance Multi] Failed to get price for ${symbol}: ${error.message}`);
+  const pricesMap = new Map<string, number>();
+  
+  // Fetch all prices in parallel
+  const results = await Promise.allSettled(
+    symbols.map(async (symbol) => {
+      const price = await getBinanceCurrentCandleClose(symbol);
+      return { symbol, price };
+    })
+  );
+  
+  // Process results
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled' && result.value.price !== null) {
+      pricesMap.set(symbols[index], result.value.price);
     }
   });
   
-  await Promise.all(promises);
+  console.log(`✅ [Binance All Prices] Fetched ${pricesMap.size}/${symbols.length} prices`);
   
-  return priceMap;
-}
-
-/**
- * Fetch all Binance prices for all supported symbols
- */
-export async function fetchAllBinancePrices(): Promise<Map<string, number>> {
-  const supportedSymbols = [
-    'BTCUSD', 'ETHUSD', 'BNBUSD', 'SOLUSD', 'ADAUSD', 'XRPUSD', 
-    'DOGEUSD', 'MATICUSD', 'TRXUSD', 'DOTUSD', 'LTCUSD', 'AVAXUSD',
-    'LINKUSD', 'ATOMUSD', 'UNIUSD', 'ETCUSD', 'XLMUSD', 'BCHUSD', 
-    'NEARUSD', 'ALGOUSD', 'FILUSD', 'SANDUSD', 'MANAUSD', 'AXSUSD'
-  ];
-  
-  return await getBinanceMultipleTickers(supportedSymbols);
-}
-
-/**
- * Test Binance API connectivity
- */
-export async function testBinanceAPI(): Promise<boolean> {
-  try {
-    const price = await getBinanceCurrentCandleClose('BTCUSD');
-    return price !== null && price > 0;
-  } catch (error) {
-    return false;
-  }
+  return pricesMap;
 }

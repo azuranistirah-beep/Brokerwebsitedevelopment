@@ -1,18 +1,26 @@
 import { createBrowserRouter, Navigate } from "react-router";
-import { RootLayout } from "./layouts/RootLayout";
+import { RootLayout } from "./components/RootLayout";
 import { LandingPage } from "./components/LandingPage";
 import { MarketsPage } from "./components/MarketsPage";
 import { ChartPage } from "./components/ChartPage";
 import { ScreenerPage } from "./components/ScreenerPage";
-import { MemberDashboard } from "./components/MemberDashboard";
+import MemberDashboard from "./components/MemberDashboard"; // ✅ FIXED: default import
+import MobileTradingDashboard from "./components/MobileTradingDashboard"; // ✅ NEW: Mobile IQ Option style
 import { NewAdminDashboard } from "./components/NewAdminDashboard";
-import { RealMoneyDashboard } from "./components/RealMoneyDashboard";
 import { AdminSetupPage } from "./components/AdminSetupPage";
-import { AuthDiagnosticTool } from "./components/AuthDiagnosticTool";
+import { RealMoneyDashboard } from "./components/RealMoneyDashboard";
 import { DepositPage } from "./components/DepositPage";
+import { MemberDepositPage } from "./components/MemberDepositPage";
+import { AuthDiagnosticTool } from "./components/AuthDiagnosticTool";
 import { QuickCreateMember } from "./components/QuickCreateMember";
 import { TestAccountCreator } from "./components/TestAccountCreator";
 import { SimpleAccountCreator } from "./components/SimpleAccountCreator";
+import { LoginPage } from "./components/LoginPage";
+import { QuickLoginTest } from "./components/QuickLoginTest";
+import { BackendTest } from "./components/BackendTest";
+import { ComprehensiveTest } from "./components/ComprehensiveTest";
+import { DebugPage } from "./components/DebugPage";
+import { TestChart } from "./components/TestChart";
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +30,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         Component: LandingPage,
+      },
+      {
+        path: "login",
+        Component: LoginPage,
       },
       {
         path: "markets",
@@ -41,7 +53,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "member",
-        Component: MemberDashboard,
+        Component: MobileTradingDashboard, // ✅ CHANGED TO MOBILE STYLE
+      },
+      {
+        path: "member-old",
+        Component: MemberDashboard, // ✅ Keep old version for reference
       },
       {
         path: "admin",
@@ -60,6 +76,10 @@ export const router = createBrowserRouter([
         Component: DepositPage,
       },
       {
+        path: "member-deposit",
+        Component: MemberDepositPage,
+      },
+      {
         path: "auth-diagnostic",
         Component: AuthDiagnosticTool,
       },
@@ -74,6 +94,26 @@ export const router = createBrowserRouter([
       {
         path: "simple-account-creator",
         Component: SimpleAccountCreator,
+      },
+      {
+        path: "quick-login-test",
+        Component: QuickLoginTest,
+      },
+      {
+        path: "backend-test",
+        Component: BackendTest,
+      },
+      {
+        path: "comprehensive-test",
+        Component: ComprehensiveTest,
+      },
+      {
+        path: "debug",
+        Component: DebugPage,
+      },
+      {
+        path: "test-chart",
+        Component: TestChart,
       },
       {
         path: "*",

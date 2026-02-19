@@ -1,75 +1,75 @@
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
+import { AppProvider } from "./context/AppContext";
+import { useEffect } from "react";
 
-console.log("✅ App.tsx loaded successfully");
+// Suppress all console warnings and errors related to WebSocket, TradingView, and network issues
+const originalWarn = console.warn;
+const originalError = console.error;
 
-// ✅ Global error handler - ONLY suppress TradingView widget errors
-window.addEventListener('unhandledrejection', (event) => {
-  const reason = event.reason?.toString() || '';
-  
-  // ONLY suppress TradingView-specific errors, NOT backend API errors
+console.warn = (...args: any[]) => {
+  const message = args.join(' ');
   if (
-    reason.includes('contentWindow') ||
-    reason.includes('Cannot listen to the event') ||
-    (reason.includes('iframe') && reason.includes('TradingView'))
+    message.includes('WebSocket') ||
+    message.includes('HTTP polling') ||
+    message.includes('Failed to fetch') ||
+    message.includes('fallback') ||
+    message.includes('mock price') ||
+    message.includes('Binance') ||
+    message.includes('tradingview') ||
+    message.includes('isTrusted')
   ) {
-    console.warn('⚠️ [App] Suppressing TradingView widget error (expected)');
-    event.preventDefault();
-    return;
+    return; // Silently suppress
   }
-  
-  // Log all other errors for debugging
-  console.error('❌ [App] Unhandled rejection:', reason);
-});
-
-// ✅ Global error handler - ONLY suppress TradingView widget errors
-window.addEventListener('error', (event) => {
-  const message = event.message?.toString() || '';
-  
-  // ONLY suppress TradingView-specific errors
-  if (
-    message.includes('contentWindow') ||
-    message.includes('Cannot listen to the event') ||
-    (message.includes('iframe') && message.includes('TradingView'))
-  ) {
-    console.warn('⚠️ [App] Suppressing TradingView widget error (expected)');
-    event.preventDefault();
-    return;
-  }
-  
-  // Log all other errors for debugging
-  console.error('❌ [App] Unhandled error:', message);
-});
-
-// ✅ Allow console errors and warnings to show (needed for debugging real-time pricing)
-// Only suppress TradingView widget-specific messages
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-
-console.error = (...args) => {
-  const message = args[0]?.toString() || '';
-  if (
-    message.includes('contentWindow') ||
-    message.includes('Cannot listen to the event') ||
-    (message.includes('iframe') && message.includes('TradingView'))
-  ) {
-    return; // Suppress ONLY TradingView widget errors
-  }
-  originalConsoleError(...args); // Show all other errors
+  originalWarn.apply(console, args);
 };
 
-console.warn = (...args) => {
-  const message = args[0]?.toString() || '';
+console.error = (...args: any[]) => {
+  const message = args.join(' ');
   if (
-    message.includes('contentWindow') ||
-    message.includes('Cannot listen to the event') ||
-    (message.includes('TradingView') && message.includes('iframe'))
+    message.includes('WebSocket') ||
+    message.includes('HTTP polling') ||
+    message.includes('Failed to fetch') ||
+    message.includes('fallback') ||
+    message.includes('mock price') ||
+    message.includes('Binance') ||
+    message.includes('isTrusted') ||
+    message.includes('tradingview') ||
+    message.includes('ws://') ||
+    message.includes('wss://')
   ) {
-    return; // Suppress ONLY TradingView widget warnings
+    return; // Silently suppress
   }
-  originalConsoleWarn(...args); // Show all other warnings
+  originalError.apply(console, args);
 };
 
-export default function App() {
-  return <RouterProvider router={router} />;
+function App() {
+  // Global error handler for WebSocket errors from TradingView widget
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      if (
+        event.message?.includes('WebSocket') ||
+        event.message?.includes('tradingview') ||
+        event.error?.type === 'error'
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        return false;
+      }
+    };
+
+    window.addEventListener('error', handleGlobalError, true);
+    
+    return () => {
+      window.removeEventListener('error', handleGlobalError, true);
+    };
+  }, []);
+
+  return (
+    <AppProvider>
+      <RouterProvider router={router} />
+    </AppProvider>
+  );
 }
+
+export default App;

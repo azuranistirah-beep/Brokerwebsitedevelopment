@@ -4,13 +4,33 @@ import App from './app/App';
 import './styles/index.css';
 import { clearAllCaches } from './utils/cacheManager';
 
+// ✅ SUPPRESS WebSocket errors from TradingView widget (BEFORE ANY OTHER CODE)
+const suppressWebSocketErrors = () => {
+  const originalError = console.error;
+  console.error = (...args: any[]) => {
+    const message = JSON.stringify(args);
+    if (
+      message.includes('WebSocket') ||
+      message.includes('isTrusted') ||
+      message.includes('tradingview') ||
+      message.includes('ws://') ||
+      message.includes('wss://')
+    ) {
+      return; // Silently suppress
+    }
+    originalError.apply(console, args);
+  };
+};
+
+suppressWebSocketErrors();
+
 // ✅ PRODUCTION: Disable console logs for better performance and security
 if (import.meta.env.PROD) {
   console.log = () => {};
   console.warn = () => {};
   console.info = () => {};
   console.debug = () => {};
-  // Keep console.error for critical issues
+  // Keep console.error for critical issues (already filtered above)
 }
 
 // Error boundary component

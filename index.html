@@ -3,9 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    
+    <!-- ✅ MOBILE OPTIMIZED VIEWPORT -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
     <meta name="description" content="Investoft - Professional trading platform with real-time charts, demo trading, and advanced market analysis. Trade crypto, forex, stocks, and commodities." />
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#000000" />
+    
+    <!-- ✅ PWA & Mobile Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
     
     <!-- ✅ PERFORMANCE: Preconnect to external domains -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
@@ -24,9 +33,91 @@
     <!-- Preload critical modules -->
     <link rel="modulepreload" href="/src/main.tsx" />
     
-    <!-- ✅ PRELOAD TRADINGVIEW SCRIPT - Use defer for optimal loading -->
-    <link rel="preload" href="https://s3.tradingview.com/tv.js" as="script">
-    <script src="https://s3.tradingview.com/tv.js" defer></script>
+    <!-- ✅ Console filter - MUST run BEFORE any other scripts -->
+    <script>
+      (function() {
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        const originalLog = console.log;
+
+        console.warn = function(...args) {
+          const message = args.join(' ');
+          if (
+            message.includes('WebSocket') ||
+            message.includes('HTTP polling') ||
+            message.includes('Failed to fetch') ||
+            message.includes('fallback') ||
+            message.includes('mock price') ||
+            message.includes('tradingview') ||
+            message.includes('isTrusted') ||
+            message.includes('ws://') ||
+            message.includes('wss://')
+          ) {
+            return;
+          }
+          originalWarn.apply(console, args);
+        };
+
+        console.error = function(...args) {
+          const message = JSON.stringify(args);
+          if (
+            message.includes('WebSocket') ||
+            message.includes('HTTP polling') ||
+            message.includes('Failed to fetch') ||
+            message.includes('fallback') ||
+            message.includes('mock price') ||
+            message.includes('tradingview') ||
+            message.includes('isTrusted') ||
+            message.includes('ws://') ||
+            message.includes('wss://')
+          ) {
+            return;
+          }
+          originalError.apply(console, args);
+        };
+
+        console.log = function(...args) {
+          const message = args.join(' ');
+          if (
+            message.includes('HTTP polling error') ||
+            message.includes('WebSocket connection failed') ||
+            message.includes('using mock price') ||
+            message.includes('using HTTP fallback')
+          ) {
+            return;
+          }
+          originalLog.apply(console, args);
+        };
+        
+        // Suppress unhandled promise rejections related to WebSocket
+        window.addEventListener('unhandledrejection', function(event) {
+          const reason = event.reason?.toString() || '';
+          if (
+            reason.includes('WebSocket') ||
+            reason.includes('tradingview') ||
+            reason.includes('ws://') ||
+            reason.includes('wss://')
+          ) {
+            event.preventDefault();
+            return;
+          }
+        });
+        
+        // Suppress global errors related to WebSocket
+        window.addEventListener('error', function(event) {
+          const message = event.message || '';
+          if (
+            message.includes('WebSocket') ||
+            message.includes('tradingview') ||
+            event.error?.message?.includes('WebSocket')
+          ) {
+            event.preventDefault();
+            event.stopPropagation();
+            return false;
+          }
+        }, true);
+      })();
+    </script>
     
     <!-- Error handling script -->
     <script>

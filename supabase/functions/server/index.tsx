@@ -116,11 +116,11 @@ async function safeKvGet(key: string): Promise<any> {
 
 // Helper to safely set to kv_store (non-blocking)
 async function safeKvSet(key: string, value: any): Promise<void> {
-  try {
-    await kv.set(key, value);
-  } catch (error: any) {
+  // ✅ FIRE-AND-FORGET: Don't await, just queue it
+  // This prevents KV store from blocking the response
+  kv.set(key, value).catch((error: any) => {
     console.warn(`⚠️ [KV Store] Set failed for ${key}: ${error.message} - Continuing with in-memory cache only`);
-  }
+  });
 }
 
 // ==========================================
@@ -208,6 +208,68 @@ async function getMarketPrice(symbol: string): Promise<number> {
       console.log(`📦 [Cache] Using cached CRYPTO price for ${symbol}: $${cached.price} (age: ${Math.round((now - cached.timestamp) / 1000)}s, Source: ${cached.source})`);
       return Number(cached.price.toFixed(2));
     }
+  }
+  
+  // ==========================================
+  // 🪙 GOLD/SILVER via Binance PAXG (Tokenized Gold)
+  // ==========================================
+  // PAXG = Paxos Gold (1 PAXG = 1 troy ounce of gold)
+  if (symbol.toUpperCase().includes('GOLD') || symbol.toUpperCase().includes('XAU')) {
+    console.log(`🪙 [Price Engine] Getting FRESH GOLD price via Binance PAXG...`);
+    
+    try {
+      console.log(`🕯️ [Binance PAXG] Trying to fetch PAXGUSDT 1m candle...`);
+      const paxgPrice = await getBinanceCurrentCandleClose('PAXGUSDT');
+      
+      if (paxgPrice && paxgPrice > 0) {
+        console.log(`✅ [Binance PAXG] GOLD = $${paxgPrice.toFixed(2)}/oz (1 PAXG = 1 troy oz gold) ⭐`);
+        
+        await safeKvSet(cacheKey, {
+          price: paxgPrice,
+          timestamp: now,
+          source: 'binance-paxg-gold'
+        });
+        
+        priceCache.set(cacheKey, {
+          price: paxgPrice,
+          timestamp: now,
+          source: 'binance-paxg-gold'
+        });
+        
+        return Number(paxgPrice.toFixed(2));
+      }
+      
+      console.warn(`⚠️ [Binance PAXG] No valid price returned, will use fallback...`);
+    } catch (error: any) {
+      console.warn(`⚠️ [Binance PAXG] Failed: ${error.message}, will use fallback...`);
+    }
+    
+    // 📦 FALLBACK: Use cache if available
+    if (cached && cached.price && (now - cached.timestamp) < 60000) {
+      console.log(`📦 [Cache] Using cached GOLD price: $${cached.price} (age: ${Math.round((now - cached.timestamp) / 1000)}s)`);
+      return Number(cached.price.toFixed(2));
+    }
+    
+    // 🎲 LAST RESORT: Use base price with random walk
+    console.log(`🎲 [Fallback] Using simulated GOLD price (PAXG unavailable)...`);
+    const basePrice = getBasePrice(symbol);
+    const volatility = getVolatility(symbol);
+    const change = (Math.random() - 0.5) * volatility * basePrice;
+    const fallbackPrice = basePrice + change;
+    
+    await safeKvSet(cacheKey, {
+      price: fallbackPrice,
+      timestamp: now,
+      source: 'mock-fallback-gold'
+    });
+    
+    priceCache.set(cacheKey, {
+      price: fallbackPrice,
+      timestamp: now,
+      source: 'mock-fallback-gold'
+    });
+    
+    return Number(fallbackPrice.toFixed(2));
   }
   
   // ==========================================
@@ -412,17 +474,23 @@ app.get("/make-server-20da1dab/price", async (c) => {
       return c.json({ error: "Symbol parameter is required" }, 400);
     }
     
+    console.log(`📊 [API /price] Request for ${symbol}...`);
+    
     const price = await getMarketPrice(symbol);
     const cached = await safeKvGet(`price:${symbol}`);
     
-    return c.json({
+    const response = {
       symbol: symbol,
       price: price,
       source: cached?.source || 'unknown',
       timestamp: new Date().toISOString()
-    });
+    };
+    
+    console.log(`✅ [API /price] Responding: ${symbol} = $${price} (${response.source})`);
+    
+    return c.json(response);
   } catch (error: any) {
-    console.error("❌ [Price Error]:", error.message);
+    console.error(`❌ [API /price] Error:`, error.message, error.stack);
     return c.json({ error: error.message }, 500);
   }
 });
@@ -749,6 +817,22 @@ app.get("/make-server-20da1dab/test-binance", async (c) => {
       results.tests.freeCrypto = { success: false, error: e.message };
     }
     
+    // ✅ Test 5: PAXG (for GOLD testing)
+    if (symbol.toUpperCase().includes('GOLD') || symbol.toUpperCase().includes('XAU')) {
+      try {
+        console.log(`🪙 [Test] Testing PAXGUSDT for GOLD...`);
+        const paxgPrice = await getBinanceCurrentCandleClose('PAXGUSDT');
+        results.tests.paxgGold = {
+          success: !!paxgPrice,
+          price: paxgPrice,
+          method: "Binance PAXG (Tokenized Gold)",
+          note: "1 PAXG = 1 troy ounce of physical gold"
+        };
+      } catch (e: any) {
+        results.tests.paxgGold = { success: false, error: e.message };
+      }
+    }
+    
     return c.json(results);
   } catch (error: any) {
     console.error("❌ [Test Error]:", error.message);
@@ -820,8 +904,380 @@ app.get("/make-server-20da1dab/crypto", async (c) => {
   }
 });
 
+// ==========================================
+// 🔐 AUTH ENDPOINTS
+// ==========================================
+
+/**
+ * Create deposit request
+ * POST /make-server-20da1dab/deposit/create
+ */
+app.post("/make-server-20da1dab/deposit/create", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { userEmail, amount, method, bank, ewallet, crypto } = body;
+    
+    console.log(`💰 [Deposit] Creating deposit request for ${userEmail}: $${amount} via ${method}`);
+    
+    if (!userEmail || !amount || !method) {
+      return c.json({ error: "Missing required fields" }, 400);
+    }
+    
+    if (amount < 10) {
+      return c.json({ error: "Minimum deposit amount is $10" }, 400);
+    }
+    
+    // Generate deposit ID
+    const depositId = `DEP-${Date.now()}-${Math.random().toString(36).substring(7).toUpperCase()}`;
+    
+    // Generate payment info based on method
+    let paymentInfo: any = {
+      depositId,
+      amount,
+      method,
+    };
+    
+    if (method === 'bank' && bank) {
+      // Generate Virtual Account number
+      const bankCodes: Record<string, string> = {
+        'BCA': '014',
+        'MANDIRI': '008',
+        'BRI': '002',
+        'BNI': '009',
+        'PERMATA': '013',
+      };
+      const bankCode = bankCodes[bank] || '000';
+      const uniqueNumber = Math.floor(10000000 + Math.random() * 90000000);
+      paymentInfo.vaNumber = `${bankCode}${uniqueNumber}`;
+      paymentInfo.instructions = [
+        `Transfer exact amount: $${amount} to Virtual Account`,
+        `Bank: ${bank}`,
+        `VA Number: ${paymentInfo.vaNumber}`,
+        'Payment will be processed automatically',
+        'Keep your transfer receipt',
+      ];
+    } else if (method === 'ewallet' && ewallet) {
+      // Generate QR code URL (placeholder - would use real payment gateway)
+      paymentInfo.qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=INVESTOFT-${depositId}-${amount}`;
+      paymentInfo.instructions = [
+        'Open your e-wallet app',
+        'Scan the QR code above',
+        `Confirm payment of $${amount}`,
+        'Payment will be processed within 5 minutes',
+      ];
+    } else if (method === 'qris') {
+      // QRIS QR code
+      paymentInfo.qrCode = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=QRIS-INVESTOFT-${depositId}-${amount}`;
+      paymentInfo.instructions = [
+        'Open any e-wallet or banking app that supports QRIS',
+        'Scan the QR code above',
+        `Confirm payment of $${amount}`,
+        'Payment will be processed automatically',
+      ];
+    } else if (method === 'crypto' && crypto) {
+      // Crypto addresses (placeholder - would use real payment processor)
+      const cryptoAddresses: Record<string, { address: string; network: string }> = {
+        'USDT': { address: 'TXYZabc123def456ghi789jkl012mno345pqr', network: 'TRC20' },
+        'BTC': { address: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', network: 'Bitcoin' },
+        'ETH': { address: '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb', network: 'ERC20' },
+        'BNB': { address: 'bnb1abc123def456ghi789jkl012mno345pqr678s', network: 'BEP20' },
+      };
+      const cryptoData = cryptoAddresses[crypto];
+      paymentInfo.cryptoAddress = cryptoData.address;
+      paymentInfo.cryptoNetwork = cryptoData.network;
+      paymentInfo.instructions = [
+        `Send exactly $${amount} worth of ${crypto}`,
+        `Network: ${cryptoData.network}`,
+        `Address: ${cryptoData.address}`,
+        'Do NOT send from exchange (use personal wallet)',
+        'Minimum 1 confirmation required',
+        'Allow 10-30 minutes for processing',
+      ];
+    } else if (method === 'card') {
+      paymentInfo.instructions = [
+        'You will be redirected to secure payment page',
+        'Enter your card details',
+        'Complete 3D Secure verification',
+        'Funds will be credited immediately',
+      ];
+      paymentInfo.redirectUrl = '#'; // Would be real payment gateway URL
+    }
+    
+    // Save deposit request to KV store
+    const depositRecord = {
+      id: depositId,
+      userEmail,
+      amount,
+      method,
+      bank,
+      ewallet,
+      crypto,
+      status: 'pending',
+      paymentInfo,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    await kv.set(`deposit:${depositId}`, depositRecord);
+    await kv.set(`deposit:user:${userEmail}:${depositId}`, depositRecord);
+    
+    console.log(`✅ [Deposit] Created deposit request: ${depositId}`);
+    
+    return c.json({
+      success: true,
+      depositId,
+      paymentInfo,
+    });
+  } catch (error: any) {
+    console.error("❌ [Deposit Create Error]:", error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get deposit history for user
+ * GET /make-server-20da1dab/deposit/history?email=user@example.com
+ */
+app.get("/make-server-20da1dab/deposit/history", async (c) => {
+  try {
+    const email = c.req.query("email");
+    
+    if (!email) {
+      return c.json({ error: "Email parameter is required" }, 400);
+    }
+    
+    console.log(`📜 [Deposit] Getting history for ${email}...`);
+    
+    // Get all deposits for user
+    const deposits = await kv.getByPrefix(`deposit:user:${email}:`);
+    
+    return c.json({
+      success: true,
+      deposits: deposits || [],
+    });
+  } catch (error: any) {
+    console.error("❌ [Deposit History Error]:", error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Create test member account
+ * POST /make-server-20da1dab/create-test-member
+ */
+app.post("/make-server-20da1dab/create-test-member", async (c) => {
+  try {
+    const body = await c.req.json();
+    const { email, password, name, initial_balance } = body;
+    
+    console.log(`🧪 [Create Test Member] Creating account for ${email}...`);
+    
+    if (!email || !password) {
+      return c.json({ error: "Email and password are required" }, 400);
+    }
+    
+    // Create Supabase client with service role key (admin privileges)
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    
+    // Check if user already exists
+    const { data: existingUser } = await supabase.auth.admin.listUsers();
+    const userExists = existingUser?.users?.find(u => u.email === email);
+    
+    if (userExists) {
+      console.log(`⚠️ [Create Test Member] User ${email} already exists`);
+      console.log(`🔄 [Create Test Member] Deleting existing user and recreating...`);
+      
+      // Delete existing user
+      const { error: deleteError } = await supabase.auth.admin.deleteUser(userExists.id);
+      if (deleteError) {
+        console.error(`❌ [Create Test Member] Delete error:`, deleteError);
+        return c.json({ 
+          error: `User exists but cannot be deleted: ${deleteError.message}`,
+          existing: true 
+        }, 409);
+      }
+      
+      // Delete from KV store
+      await kv.del(`user:${userExists.id}`);
+      console.log(`✅ [Create Test Member] Existing user deleted, proceeding with fresh creation...`);
+    }
+    
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email since we don't have email server
+      user_metadata: {
+        name: name || 'Test User',
+        role: 'member'
+      }
+    });
+    
+    if (authError) {
+      console.error(`❌ [Create Test Member] Auth error:`, authError);
+      return c.json({ error: authError.message }, 500);
+    }
+    
+    console.log(`✅ [Create Test Member] Supabase user created with ID: ${authData.user.id}`);
+    
+    // Store user profile in KV store
+    const balance = initial_balance || 0;
+    await kv.set(`user:${authData.user.id}`, {
+      id: authData.user.id,
+      email,
+      name: name || 'Test User',
+      role: 'member',
+      demo_balance: balance,
+      real_balance: 0,
+      created_at: new Date().toISOString()
+    });
+    
+    console.log(`✅ [Create Test Member] Profile created with $${balance} balance`);
+    console.log(`✅ [Create Test Member] Account ready: ${email}`);
+    
+    return c.json({
+      success: true,
+      message: "Account created successfully",
+      user: {
+        id: authData.user.id,
+        email,
+        name: name || 'Test User',
+        role: 'member',
+        demo_balance: balance,
+        real_balance: 0
+      },
+      login_info: {
+        email,
+        note: "Account is active and ready to login"
+      }
+    });
+    
+  } catch (error: any) {
+    console.error(`❌ [Create Test Member] Error:`, error.message, error.stack);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get user profile
+ * GET /make-server-20da1dab/user/:userId
+ */
+app.get("/make-server-20da1dab/user/:userId", async (c) => {
+  try {
+    const userId = c.req.param('userId');
+    
+    if (!userId) {
+      return c.json({ error: "User ID is required" }, 400);
+    }
+    
+    const user = await kv.get(`user:${userId}`);
+    
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+    
+    return c.json(user);
+  } catch (error: any) {
+    console.error(`❌ [Get User] Error:`, error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Update user balance
+ * POST /make-server-20da1dab/user/:userId/balance
+ */
+app.post("/make-server-20da1dab/user/:userId/balance", async (c) => {
+  try {
+    const userId = c.req.param('userId');
+    const body = await c.req.json();
+    const { demo_balance, real_balance } = body;
+    
+    console.log(`💰 [Update Balance] User ${userId}: demo=$${demo_balance}, real=$${real_balance}`);
+    
+    const user = await kv.get(`user:${userId}`);
+    
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+    
+    // Update balance
+    const updatedUser = {
+      ...user,
+      demo_balance: demo_balance !== undefined ? demo_balance : user.demo_balance,
+      real_balance: real_balance !== undefined ? real_balance : user.real_balance,
+      updated_at: new Date().toISOString()
+    };
+    
+    await kv.set(`user:${userId}`, updatedUser);
+    
+    console.log(`✅ [Update Balance] Balance updated for user ${userId}`);
+    
+    return c.json(updatedUser);
+  } catch (error: any) {
+    console.error(`❌ [Update Balance] Error:`, error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+/**
+ * Get user balance by email
+ * GET /make-server-20da1dab/balance/:email
+ */
+app.get("/make-server-20da1dab/balance/:email", async (c) => {
+  try {
+    const email = c.req.param('email');
+    
+    if (!email) {
+      return c.json({ error: "Email is required" }, 400);
+    }
+    
+    console.log(`💰 [Get Balance] Fetching balance for ${email}...`);
+    
+    // Get user from Supabase Auth by email
+    const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
+    
+    if (listError) {
+      console.error(`❌ [Get Balance] Error listing users:`, listError);
+      return c.json({ error: listError.message }, 500);
+    }
+    
+    const authUser = users?.find(u => u.email === email);
+    
+    if (!authUser) {
+      console.log(`⚠️ [Get Balance] User not found: ${email}`);
+      return c.json({ balance: 0, message: "User not found" });
+    }
+    
+    // Get user profile from KV store
+    const userProfile = await kv.get(`user:${authUser.id}`);
+    
+    if (!userProfile) {
+      console.log(`⚠️ [Get Balance] Profile not found for ${email}, returning 0`);
+      return c.json({ balance: 0, message: "Profile not found" });
+    }
+    
+    const balance = userProfile.demo_balance || 0;
+    console.log(`✅ [Get Balance] ${email} balance: $${balance}`);
+    
+    return c.json({ 
+      balance,
+      demo_balance: userProfile.demo_balance || 0,
+      real_balance: userProfile.real_balance || 0
+    });
+    
+  } catch (error: any) {
+    console.error(`❌ [Get Balance] Error:`, error.message);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
 // Start server
 console.log("🚀 Starting Investoft Trading Server with Binance Real-Time Pricing...");
 console.log("📡 Priority: Binance 1m Candle CLOSE → Free Crypto API → Cache (10s) → Mock");
 console.log("🧠 Using in-memory cache as primary, KV store as backup");
+console.log("🔐 Auth endpoints: /create-test-member, /user/:userId, /user/:userId/balance, /balance/:email");
 Deno.serve(app.fetch);

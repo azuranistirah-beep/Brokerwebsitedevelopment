@@ -128,13 +128,11 @@ export function RootLayout() {
   }, []);
 
   const handleLoginClick = () => {
-    setAuthModalTab("signin");
-    setAuthModalOpen(true);
+    navigate('/login');
   };
 
   const handleSignupClick = () => {
-    setAuthModalTab("signup");
-    setAuthModalOpen(true);
+    navigate('/login');
   };
 
   const handleAuthSuccess = async (token: string, id: string) => {

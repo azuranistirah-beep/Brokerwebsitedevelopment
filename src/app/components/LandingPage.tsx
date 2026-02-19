@@ -3,14 +3,18 @@ import { TrendingUp, Shield, CheckCircle2, ArrowRight, Gift, Sparkles, Play } fr
 import { LiveMarketOverview } from "./LiveMarketOverview";
 import { PopularAssets } from "./PopularAssets";
 import { TickerTape } from "./TickerTape";
-import { useOutletContext } from "react-router";
+import { useNavigate } from "react-router";
 
-interface OutletContextType {
-  onSignupClick: () => void;
-}
-
+/**
+ * LandingPage Component - Cache Bust v2.0
+ * Uses direct navigation instead of outlet context
+ */
 export function LandingPage() {
-  const { onSignupClick } = useOutletContext<OutletContextType>();
+  const navigate = useNavigate();
+  
+  const handleSignupClick = () => {
+    navigate('/login');
+  };
 
   return (
     <div className="bg-slate-950 font-sans">
@@ -64,7 +68,7 @@ export function LandingPage() {
                 <Button 
                   size="lg" 
                   className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-8 h-14 rounded-xl transition-all hover:scale-105 shadow-xl shadow-blue-600/20" 
-                  onClick={onSignupClick}
+                  onClick={handleSignupClick}
                 >
                   Start Trading Free
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -73,7 +77,7 @@ export function LandingPage() {
                   size="lg" 
                   variant="outline" 
                   className="border-2 border-slate-700 bg-slate-900/50 text-white hover:bg-slate-800 hover:border-slate-600 text-lg px-8 h-14 rounded-xl backdrop-blur-sm" 
-                  onClick={() => onSignupClick()}
+                  onClick={() => handleSignupClick()}
                 >
                   <Play className="mr-2 h-5 w-5" />
                   Explore Markets
@@ -209,7 +213,7 @@ export function LandingPage() {
               <Button 
                 size="lg" 
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-lg px-10 h-14 rounded-xl transition-all hover:scale-105 shadow-xl shadow-blue-600/20" 
-                onClick={onSignupClick}
+                onClick={handleSignupClick}
               >
                 Create Free Account
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -218,7 +222,7 @@ export function LandingPage() {
                 size="lg" 
                 variant="outline" 
                 className="border-2 border-slate-700 bg-slate-800/50 text-white hover:bg-slate-700 hover:border-slate-600 text-lg px-10 h-14 rounded-xl backdrop-blur-sm" 
-                onClick={onSignupClick}
+                onClick={handleSignupClick}
               >
                 Try Demo Account
               </Button>

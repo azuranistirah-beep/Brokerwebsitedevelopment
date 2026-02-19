@@ -1,6 +1,7 @@
 import { useOutletContext } from "react-router";
 
 export interface AppContextType {
+  isAuthenticated: boolean;
   accessToken: string | null;
   userId: string | null;
   userRole: string | null;
