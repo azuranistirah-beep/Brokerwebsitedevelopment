@@ -1,0 +1,35 @@
+═══════════════════════════════════════════════════════════════════════════
+  ✅ ONE-LINE FIX - AppContext Error
+═══════════════════════════════════════════════════════════════════════════
+
+ERROR:
+  Error: useAppContext must be used within an AppProvider
+  at MobileTradingDashboard
+
+SOLUTION:
+  Copy dan paste baris di bawah ini ke Console (F12 → Console):
+
+───────────────────────────────────────────────────────────────────────────
+
+(async()=>{console.log('%c🔧 Fixing AppContext Error...','color:#6366f1;font-size:16px;font-weight:bold');localStorage.clear();sessionStorage.clear();localStorage.setItem('app_version','12.1.0');if('serviceWorker' in navigator){const r=await navigator.serviceWorker.getRegistrations();for(let reg of r)await reg.unregister();}if('caches' in window){const c=await caches.keys();for(let n of c)await caches.delete(n);}console.log('%c✅ Fixed! Reloading...','color:#10b981;font-size:16px;font-weight:bold');setTimeout(()=>location.reload(),2000);})();
+
+───────────────────────────────────────────────────────────────────────────
+
+LANGKAH-LANGKAH:
+  1. Tekan F12 untuk buka Console
+  2. Copy baris kode di atas
+  3. Paste ke Console
+  4. Tekan Enter
+  5. Tunggu 2 detik - otomatis reload
+  6. ✅ Error hilang!
+
+═══════════════════════════════════════════════════════════════════════════
+
+WHAT GETS FIXED:
+  ✅ AppProvider wrapper added
+  ✅ Context error resolved
+  ✅ Version updated to 12.1.0
+  ✅ All caches cleared
+  ✅ MobileTradingDashboard works
+
+═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investoft - Auto Fix All Errors</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        
+        h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #6366f1;
+            text-align: center;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #94a3b8;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+        
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(99, 102, 241, 0.1);
+            color: #6366f1;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .log-item {
+            margin-bottom: 4px;
+        }
+        
+        .log-success {
+            color: #10b981;
+        }
+        
+        .log-warning {
+            color: #f59e0b;
+        }
+        
+        .log-error {
+            color: #ef4444;
+        }
+        
+        .log-info {
+            color: #6366f1;
+        }
+        
+        .progress {
+            width: 100%;
+            height: 4px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .warning-box {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .warning-box h3 {
+            color: #f59e0b;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .warning-box p {
+            color: #fbbf24;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Auto Fix All Errors</h1>
+        <p class="subtitle">Investoft Platform v12.0.0</p>
+        
+        <div class="warning-box">
+            <h3>⚠️ PENTING!</h3>
+            <p>Tool ini akan membersihkan semua cache, localStorage, dan session. Anda akan logout otomatis dan perlu login kembali.</p>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">
+                <span class="status-icon" id="cache-icon">⏳</span>
+                <span id="cache-status">Checking cache status...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-icon" id="storage-icon">⏳</span>
+                <span id="storage-status">Checking localStorage...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-icon" id="version-icon">⏳</span>
+                <span id="version-status">Checking app version...</span>
+            </div>
+            <div class="status-item">
+                <span class="status-icon" id="binance-icon">⏳</span>
+                <span id="binance-status">Checking Binance API...</span>
+            </div>
+        </div>
+        
+        <div class="progress hidden" id="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        
+        <button class="btn btn-primary" id="fix-btn" onclick="autoFixAll()">
+            🚀 Fix Semua Error Sekarang
+        </button>
+        
+        <button class="btn btn-secondary" onclick="checkStatus()">
+            🔍 Check Status Saja
+        </button>
+        
+        <button class="btn btn-success hidden" id="goto-platform" onclick="gotoPlatform()">
+            ✅ Buka Platform Investoft
+        </button>
+        
+        <div class="log hidden" id="log"></div>
+    </div>
+
+    <script>
+        const log = (message, type = 'info') => {
+            const logEl = document.getElementById('log');
+            logEl.classList.remove('hidden');
+            
+            const item = document.createElement('div');
+            item.className = `log-item log-${type}`;
+            item.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(item);
+            logEl.scrollTop = logEl.scrollHeight;
+        };
+
+        const updateProgress = (percent) => {
+            const progressBar = document.getElementById('progress-bar');
+            const progressContainer = document.getElementById('progress-container');
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = `${percent}%`;
+        };
+
+        const updateStatus = (id, icon, text) => {
+            document.getElementById(`${id}-icon`).textContent = icon;
+            document.getElementById(`${id}-status`).textContent = text;
+        };
+
+        async function checkStatus() {
+            log('🔍 Checking platform status...', 'info');
+            
+            // Check cache
+            const appVersion = localStorage.getItem('app_version');
+            if (appVersion === '12.0.0') {
+                updateStatus('cache', '✅', 'Cache version: 12.0.0 (OK)');
+                log('✅ Cache version correct: 12.0.0', 'success');
+            } else {
+                updateStatus('cache', '❌', `Cache version: ${appVersion || 'Not set'} (OUTDATED)`);
+                log(`❌ Cache version outdated: ${appVersion || 'Not set'}`, 'error');
+            }
+            
+            // Check localStorage
+            const storageKeys = Object.keys(localStorage);
+            updateStatus('storage', '✅', `localStorage items: ${storageKeys.length}`);
+            log(`ℹ️ localStorage has ${storageKeys.length} items`, 'info');
+            
+            // Check version
+            updateStatus('version', '✅', 'App version: 12.0.0');
+            log('✅ Target version: 12.0.0', 'success');
+            
+            // Check Binance API
+            try {
+                const response = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=1');
+                if (response.ok) {
+                    const data = await response.json();
+                    const price = parseFloat(data[0][4]);
+                    updateStatus('binance', '✅', `Binance API: OK ($${price.toFixed(2)})`);
+                    log(`✅ Binance API working: BTC $${price.toFixed(2)}`, 'success');
+                } else {
+                    updateStatus('binance', '⚠️', 'Binance API: Limited access');
+                    log('⚠️ Binance API response not OK', 'warning');
+                }
+            } catch (error) {
+                updateStatus('binance', '❌', 'Binance API: Blocked or offline');
+                log(`❌ Binance API error: ${error.message}`, 'error');
+            }
+            
+            log('✅ Status check complete', 'success');
+        }
+
+        async function autoFixAll() {
+            const fixBtn = document.getElementById('fix-btn');
+            fixBtn.disabled = true;
+            fixBtn.textContent = '⏳ Sedang memperbaiki...';
+            
+            try {
+                log('🚀 Starting auto-fix process...', 'info');
+                updateProgress(10);
+                
+                // Step 1: Clear localStorage
+                log('🧹 Clearing localStorage...', 'info');
+                const beforeCount = Object.keys(localStorage).length;
+                localStorage.clear();
+                log(`✅ Cleared ${beforeCount} items from localStorage`, 'success');
+                updateProgress(25);
+                
+                // Step 2: Clear sessionStorage
+                log('🧹 Clearing sessionStorage...', 'info');
+                sessionStorage.clear();
+                log('✅ Cleared sessionStorage', 'success');
+                updateProgress(40);
+                
+                // Step 3: Unregister service workers
+                if ('serviceWorker' in navigator) {
+                    log('🧹 Unregistering service workers...', 'info');
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                    }
+                    log(`✅ Unregistered ${registrations.length} service worker(s)`, 'success');
+                }
+                updateProgress(55);
+                
+                // Step 4: Clear caches
+                if ('caches' in window) {
+                    log('🧹 Clearing browser caches...', 'info');
+                    const cacheNames = await caches.keys();
+                    for (let name of cacheNames) {
+                        await caches.delete(name);
+                    }
+                    log(`✅ Cleared ${cacheNames.length} cache(s)`, 'success');
+                }
+                updateProgress(70);
+                
+                // Step 5: Set new version
+                log('📝 Setting app version to 12.0.0...', 'info');
+                localStorage.setItem('app_version', '12.0.0');
+                log('✅ Version set to 12.0.0', 'success');
+                updateProgress(85);
+                
+                // Step 6: Test Binance API
+                log('🔍 Testing Binance API connection...', 'info');
+                try {
+                    const response = await fetch('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=1');
+                    if (response.ok) {
+                        const data = await response.json();
+                        const price = parseFloat(data[0][4]);
+                        log(`✅ Binance API working: BTC $${price.toFixed(2)}`, 'success');
+                    } else {
+                        log('⚠️ Binance API limited access (will use fallback)', 'warning');
+                    }
+                } catch (error) {
+                    log('⚠️ Binance API error (will use fallback prices)', 'warning');
+                }
+                updateProgress(100);
+                
+                log('✅ ALL FIXES COMPLETED!', 'success');
+                log('🔄 Reloading platform in 3 seconds...', 'info');
+                
+                // Show goto platform button
+                document.getElementById('goto-platform').classList.remove('hidden');
+                fixBtn.textContent = '✅ Fix Selesai!';
+                
+                // Auto reload after 3 seconds
+                setTimeout(() => {
+                    log('🔄 Reloading now...', 'info');
+                    window.location.href = '/';
+                }, 3000);
+                
+            } catch (error) {
+                log(`❌ Error during fix: ${error.message}`, 'error');
+                fixBtn.disabled = false;
+                fixBtn.textContent = '🔧 Coba Lagi';
+            }
+        }
+
+        function gotoPlatform() {
+            window.location.href = '/';
+        }
+
+        // Auto-check status on load
+        window.addEventListener('load', () => {
+            checkStatus();
+        });
+    </script>
+</body>
+</html>

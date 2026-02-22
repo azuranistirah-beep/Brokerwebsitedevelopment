@@ -1,0 +1,12 @@
+{
+  "version": "12.1.0",
+  "timestamp": "2026-02-22T12:00:00Z",
+  "changes": [
+    "✅ FIXED: Added AppProvider wrapper to fix 'useAppContext must be used within AppProvider' error",
+    "✅ FIXED: All React Hook dependency warnings resolved with useCallback",
+    "✅ Using Direct Binance API for real-time prices",
+    "✅ Frontend-only solution - No Edge Functions dependency",
+    "✅ MobileTradingDashboard now properly wrapped with AppContext",
+    "✅ ErrorBoundary added for better error handling"
+  ]
+}

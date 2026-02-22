@@ -331,8 +331,6 @@ export function CryptoMarketList() {
   const [watchlist, setWatchlist] = useState<string[]>([]);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [usingMockData, setUsingMockData] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages] = useState(35); // 3500 coins / 100 per page = 35 pages
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -342,7 +340,7 @@ export function CryptoMarketList() {
       fetchCryptoData(false); // Don't show loading on refresh
     }, 10000);
     return () => clearInterval(interval);
-  }, [currentPage]); // Re-fetch when page changes
+  }, []); // Only fetch once on mount, then refresh every 10s
 
   const fetchCryptoData = async (showLoading = true) => {
     try {
@@ -350,10 +348,10 @@ export function CryptoMarketList() {
         console.log("🔄 Fetching crypto data...");
       }
       
-      // Try backend first
+      // Try backend first - ONLY 100 coins, NO pagination
       try {
-        const url = `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/crypto?per_page=100&page=${currentPage}`;
-        console.log(`📡 [CryptoMarketList] Fetching from: ${url}`);
+        const url = `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/crypto?per_page=100&page=1`;
+        console.log(`📡 [CryptoMarketList] Fetching top 100 cryptocurrencies from: ${url}`);
         
         const response = await fetch(url, {
           headers: {
@@ -589,7 +587,7 @@ export function CryptoMarketList() {
                         className={`h-3 w-3 sm:h-4 sm:w-4 ${watchlist.includes(crypto.id) ? 'fill-yellow-400 text-yellow-400' : ''}`} 
                       />
                     </button>
-                    <span className="text-slate-400 font-medium text-[11px] sm:text-xs md:text-sm">{((currentPage - 1) * 100) + index + 1}</span>
+                    <span className="text-slate-400 font-medium text-[11px] sm:text-xs md:text-sm">{index + 1}</span>
                   </div>
                 </td>
 
@@ -697,114 +695,6 @@ export function CryptoMarketList() {
             ))}
           </tbody>
         </table>
-      </div>
-
-      {/* Footer with Pagination */}
-      <div className="p-4 border-t border-slate-800 bg-slate-900/50">
-        <div className="flex items-center justify-between">
-          {/* Page Info */}
-          <div className="text-sm text-slate-400">
-            Showing <span className="text-white font-semibold">{((currentPage - 1) * 100) + 1}</span> - <span className="text-white font-semibold">{Math.min(currentPage * 100, 3500)}</span> of <span className="text-white font-semibold">3,500</span> coins
-          </div>
-
-          {/* Pagination Controls */}
-          <div className="flex items-center gap-2">
-            {/* Previous Button */}
-            <button
-              onClick={() => {
-                setCurrentPage(prev => Math.max(1, prev - 1));
-                setLoading(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              disabled={currentPage === 1}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                currentPage === 1
-                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              Previous
-            </button>
-
-            {/* Page Numbers */}
-            <div className="flex items-center gap-1">
-              {/* First Page */}
-              {currentPage > 3 && (
-                <>
-                  <button
-                    onClick={() => {
-                      setCurrentPage(1);
-                      setLoading(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="px-3 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
-                  >
-                    1
-                  </button>
-                  <span className="text-slate-500 px-2">...</span>
-                </>
-              )}
-
-              {/* Current Page Range */}
-              {Array.from({ length: 5 }, (_, i) => {
-                const pageNum = currentPage - 2 + i;
-                if (pageNum < 1 || pageNum > totalPages) return null;
-                
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => {
-                      setCurrentPage(pageNum);
-                      setLoading(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      pageNum === currentPage
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              {/* Last Page */}
-              {currentPage < totalPages - 2 && (
-                <>
-                  <span className="text-slate-500 px-2">...</span>
-                  <button
-                    onClick={() => {
-                      setCurrentPage(totalPages);
-                      setLoading(true);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="px-3 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors"
-                  >
-                    {totalPages}
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* Next Button */}
-            <button
-              onClick={() => {
-                setCurrentPage(prev => Math.min(totalPages, prev + 1));
-                setLoading(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              disabled={currentPage === totalPages}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                currentPage === totalPages
-                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              Next
-            </button>
-          </div>
-        </div>
       </div>
     </Card>
   );

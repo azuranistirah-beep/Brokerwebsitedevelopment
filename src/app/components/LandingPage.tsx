@@ -1,7 +1,6 @@
 import { Button } from "./ui/button";
 import { TrendingUp, Shield, CheckCircle2, ArrowRight, Gift, Sparkles, Play } from "lucide-react";
 import { LiveMarketOverview } from "./LiveMarketOverview";
-import { PopularAssets } from "./PopularAssets";
 import { TickerTape } from "./TickerTape";
 import { useNavigate } from "react-router";
 
@@ -115,11 +114,6 @@ export function LandingPage() {
         <div className="container mx-auto px-4 relative z-10">
           <LiveMarketOverview />
         </div>
-      </section>
-
-      {/* Popular Assets Section - MOVED UP */}
-      <section className="py-16 bg-slate-950 border-t border-slate-900">
-        <PopularAssets />
       </section>
 
       {/* Why Traders Choose Section - MOVED DOWN */}

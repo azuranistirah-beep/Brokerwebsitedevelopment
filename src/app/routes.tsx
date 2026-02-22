@@ -53,7 +53,11 @@ export const router = createBrowserRouter([
       },
       {
         path: "member",
-        Component: MobileTradingDashboard, // ✅ CHANGED TO MOBILE STYLE
+        Component: MemberDashboard, // ✅ RESTORED: Clean professional dashboard
+      },
+      {
+        path: "member-mobile",
+        Component: MobileTradingDashboard, // ✅ Mobile version
       },
       {
         path: "member-old",

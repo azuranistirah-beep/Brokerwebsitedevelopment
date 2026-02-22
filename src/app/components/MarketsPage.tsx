@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -12,8 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { useSearchParams } from "react-router";
 import { PopularAssets } from "./PopularAssets";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
-import { unifiedPriceService } from "../lib/unifiedPriceService";
 import { TradeResultModal } from "./TradeResultModal";
+import { unifiedPriceService } from "../lib/unifiedPriceService";
 
 interface DemoAccount {
   balance: number;
@@ -152,11 +152,14 @@ const getMarketStatus = (symbol: string): { isOpen: boolean; message: string } =
 };
 
 export function MarketsPage() {
+  // Debug log at component mount
+  console.log('🎬 [MarketsPage] Component mounted - Using unifiedPriceService for real-time prices');
+  
   const [searchParams] = useSearchParams();
   const [selectedSymbol, setSelectedSymbol] = useState("BINANCE:BTCUSDT");
   const [selectedInterval, setSelectedInterval] = useState("1d");
-  const [currentPrice, setCurrentPrice] = useState<number>(67438.29); // ✅ Set default mock price immediately
-  const [previousPrice, setPreviousPrice] = useState<number>(67438.29); // ✅ Set default mock price immediately
+  const [currentPrice, setCurrentPrice] = useState<number>(0); // ✅ Start with 0 to detect if price updates work
+  const [previousPrice, setPreviousPrice] = useState<number>(0); // ✅ Start with 0 to detect if price updates work
   const [selectedAmount, setSelectedAmount] = useState(10);
   const [selectedDuration, setSelectedDuration] = useState("1m");
   const [positions, setPositions] = useState<Position[]>([]);
@@ -273,26 +276,55 @@ export function MarketsPage() {
   const payoutPercentage = 95;
   const potentialProfit = (selectedAmount * payoutPercentage) / 100;
 
-  // ✅ SUBSCRIBE TO UNIFIED PRICE SERVICE (SINGLE SOURCE OF TRUTH)
-  useEffect(() => {
-    console.log(`🚀 [MarketsPage] Subscribing to Unified Price Service for: ${selectedSymbol}`);
+  // ✅ REAL-TIME PRICE from Binance WebSocket via Supabase Edge Function
+  // Convert TradingView symbol to Binance format
+  const convertToBinanceSymbol = (tvSymbol: string): string | null => {
+    const symbolMap: Record<string, string> = {
+      'BINANCE:BTCUSDT': 'BTCUSD',
+      'BINANCE:ETHUSDT': 'ETHUSD',
+      'BINANCE:BNBUSDT': 'BNBUSD',
+      'BINANCE:XRPUSDT': 'XRPUSD',
+      'BINANCE:SOLUSDT': 'SOLUSD',
+      'BINANCE:ADAUSDT': 'ADAUSD',
+      'BINANCE:DOGEUSDT': 'DOGEUSD',
+      'BINANCE:DOTUSDT': 'DOTUSD',
+      'BINANCE:MATICUSDT': 'MATICUSD',
+      'BINANCE:TRXUSDT': 'TRXUSD',
+      'BINANCE:LTCUSDT': 'LTCUSD',
+      'BINANCE:AVAXUSDT': 'AVAXUSD',
+      'BINANCE:LINKUSDT': 'LINKUSD',
+      'BINANCE:ATOMUSDT': 'ATOMUSD',
+      'BINANCE:UNIUSDT': 'UNIUSD',
+      'BINANCE:ETCUSDT': 'ETCUSD',
+      'BINANCE:XLMUSDT': 'XLMUSD',
+      'BINANCE:BCHUSDT': 'BCHUSD',
+      'BINANCE:NEARUSDT': 'NEARUSD',
+    };
     
-    // Subscribe to price updates from Unified Service
-    const unsubscribe = unifiedPriceService.subscribe(selectedSymbol, (priceData) => {
-      console.log(`📊📊📊 [MarketsPage] Received price from Unified Service: ${priceData.symbol} = $${priceData.price.toFixed(2)} (source: ${priceData.source})`);
-      
-      setCurrentPrice(prevPrice => {
-        console.log(`🔄 Updating currentPrice: ${prevPrice.toFixed(2)} → ${priceData.price.toFixed(2)}`);
-        setPreviousPrice(prevPrice);
+    return symbolMap[tvSymbol] || null;
+  };
+
+  useEffect(() => {
+    const binanceSymbol = convertToBinanceSymbol(selectedSymbol);
+    
+    if (!binanceSymbol) {
+      console.log(`⚠️ [MarketsPage] Symbol ${selectedSymbol} is not a Binance crypto pair. Using fallback price.`);
+      // For non-crypto assets (forex, stocks, commodities), keep current price or set a default
+      return;
+    }
+
+    console.log(`🔌 [MarketsPage] Subscribing to ${binanceSymbol} (from ${selectedSymbol})...`);
+    
+    const unsubscribe = unifiedPriceService.subscribe(binanceSymbol, (priceData) => {
+      console.log(`💹 [MarketsPage] Price update for ${binanceSymbol}: $${priceData.price.toFixed(2)}`);
+      setCurrentPrice(prev => {
+        setPreviousPrice(prev);
         return priceData.price;
       });
     });
     
-    console.log(`✅ [MarketsPage] Subscribed to ${selectedSymbol}`);
-    
-    // Cleanup on unmount or symbol change
     return () => {
-      console.log(`🔌 [MarketsPage] Unsubscribing from ${selectedSymbol}`);
+      console.log(`🧹 [MarketsPage] Unsubscribing from ${binanceSymbol}...`);
       unsubscribe();
     };
   }, [selectedSymbol]);
@@ -306,7 +338,7 @@ export function MarketsPage() {
       if (expiredPositions.length > 0) {
         console.log(`⏰ Found ${expiredPositions.length} expired position(s)!`);
         expiredPositions.forEach(position => {
-          // ✅ CRITICAL: Use current price from state (updated from Unified Price Service)
+          // ✅ CRITICAL: Use current price from state (updated from TradingChart onPriceUpdate)
           // This ensures exit price matches what's shown in the UI
           const realExitPrice = currentPrice;
           
@@ -315,7 +347,7 @@ export function MarketsPage() {
             return; // Skip this position, will be checked again in next interval
           }
           
-          console.log(`📊 Closing position: ${position.asset} ${position.type} | Entry: $${position.entryPrice.toFixed(2)} | Exit: $${realExitPrice.toFixed(2)} (from Unified Price Service)`);
+          console.log(`📊 Closing position: ${position.asset} ${position.type} | Entry: $${position.entryPrice.toFixed(2)} | Exit: $${realExitPrice.toFixed(2)} (from TradingChart)`);
           closePositionWithRealPrice(position, realExitPrice);
         });
       }
@@ -347,7 +379,7 @@ export function MarketsPage() {
       closedAt: new Date().toISOString()
     };
 
-    // ✅ FIX: Calculate stats BEFORE setState to avoid scope issues
+    //  FIX: Calculate stats BEFORE setState to avoid scope issues
     let newWinRate = 0;
     let newTotalTrades = 0;
     let newTotalProfit = 0;
@@ -599,15 +631,6 @@ export function MarketsPage() {
                   key={selectedSymbol} // ✅ Force re-mount when symbol changes
                   symbol={selectedSymbol}
                   theme="dark"
-                  onPriceUpdate={(price) => {
-                    // ✅ Update price from TradingView chart directly
-                    // This ensures EXACT MATCH for ALL symbols (GOLD, SILVER, FOREX, etc)
-                    console.log(`📊 [MarketsPage] Received price from TradingView chart: ${selectedSymbol} = $${price.toFixed(2)}`);
-                    setCurrentPrice(prevPrice => {
-                      setPreviousPrice(prevPrice);
-                      return price;
-                    });
-                  }}
                 />
               </div>
               

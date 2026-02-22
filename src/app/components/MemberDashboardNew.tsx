@@ -79,6 +79,38 @@ export function MemberDashboardNew() {
     loadUserProfile(token);
   }, []);
 
+  // Convert symbol to TradingView format
+  const getTradingViewSymbol = (symbol: string): string => {
+    const symbolMap: Record<string, string> = {
+      // Crypto
+      'BTCUSD': 'BINANCE:BTCUSDT',
+      'ETHUSD': 'BINANCE:ETHUSDT',
+      'BNBUSD': 'BINANCE:BNBUSDT',
+      'SOLUSD': 'BINANCE:SOLUSDT',
+      'XRPUSD': 'BINANCE:XRPUSDT',
+      'ADAUSD': 'BINANCE:ADAUSDT',
+      'DOGEUSD': 'BINANCE:DOGEUSDT',
+      'MATICUSD': 'BINANCE:MATICUSDT',
+      'DOTUSD': 'BINANCE:DOTUSDT',
+      'UNIUSD': 'BINANCE:UNIUSDT',
+      // Commodities
+      'GOLD': 'TVC:GOLD',
+      'SILVER': 'TVC:SILVER',
+      'USOIL': 'TVC:USOIL',
+      'UKOIL': 'TVC:UKOIL',
+      // Stocks
+      'AAPL': 'NASDAQ:AAPL',
+      'GOOGL': 'NASDAQ:GOOGL',
+      'MSFT': 'NASDAQ:MSFT',
+      'TSLA': 'NASDAQ:TSLA',
+      'NVDA': 'NASDAQ:NVDA',
+    };
+    
+    const tvSymbol = symbolMap[symbol] || `BINANCE:${symbol}USDT`;
+    console.log(`🔄 [MemberDashboard] Converting symbol: ${symbol} → ${tvSymbol}`);
+    return tvSymbol;
+  };
+
   // Subscribe to price updates
   useEffect(() => {
     const unsubscribe = unifiedPriceService.subscribe(selectedSymbol, (priceData) => {
@@ -322,7 +354,53 @@ export function MemberDashboardNew() {
       {/* MAIN: Fullscreen Chart */}
       <div className="flex-1 relative">
         <div className="absolute inset-0">
-          <TradingChart symbol={selectedSymbol} theme="dark" />
+          <TradingChart 
+            symbol={getTradingViewSymbol(selectedSymbol)} 
+            theme="dark"
+            onPriceUpdate={(price) => {
+              console.log(`💰 [MemberDashboard] Received price update: $${price.toFixed(2)}`);
+              setPreviousPrice(currentPrice);
+              setCurrentPrice(price);
+            }}
+          />
+          
+          {/* CUSTOM PRICE OVERLAY - Always show REAL BINANCE PRICE */}
+          {currentPrice > 0 && (
+            <div className="absolute top-2 left-2 z-50 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-lg px-4 py-2 shadow-xl">
+              <div className="flex items-center gap-3">
+                {/* Symbol */}
+                <div className="text-slate-400 text-sm font-medium">
+                  {selectedSymbol}
+                </div>
+                
+                {/* Price */}
+                <div className="flex items-center gap-2">
+                  <div className="text-white text-2xl font-bold tracking-tight">
+                    ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  
+                  {/* Price Change Indicator */}
+                  {previousPrice > 0 && currentPrice !== previousPrice && (
+                    <div className={`flex items-center gap-1 text-sm font-semibold ${
+                      currentPrice > previousPrice ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      {currentPrice > previousPrice ? (
+                        <><TrendingUp className="h-4 w-4" /> +{((currentPrice - previousPrice) / previousPrice * 100).toFixed(2)}%</>
+                      ) : (
+                        <><TrendingDown className="h-4 w-4" /> {((currentPrice - previousPrice) / previousPrice * 100).toFixed(2)}%</>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Live Indicator */}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-500 font-medium">LIVE</span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
