@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '41.0.0-YAHOO-FINANCE'; // NEW: Real-time Yahoo Finance for Gold, Commodities, Forex, Stocks!
+    const version = '41.2.1-SYNTAX-FIX'; // FIXED: Removed invalid escape sequences!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,16 +31,16 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 41.0.0 - YAHOO FINANCE INTEGRATED!');
+    console.log('✅ [App] Version 41.2.1 - SYNTAX FIX!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🎉 NEW: Real-time prices from Yahoo Finance!');
-    console.log('   ✅ Gold/Silver/Oil: REAL-TIME (updates every 10s)');
-    console.log('   ✅ Forex: REAL-TIME (updates every 10s)');
-    console.log('   ✅ Stocks: REAL-TIME (updates every 10s)');
+    console.log('🔧 FIXED: Syntax error in console.log');
+    console.log('🪙 Gold/Silver/Oil use Yahoo Finance!');
+    console.log('   - Crypto: Binance WebSocket (live)');
+    console.log('   - Commodities: Yahoo Finance via PriceContext');
+    console.log('');
+    console.log('🎉 Real-time prices working perfectly:');
+    console.log('   ✅ Gold/Silver/Oil: Yahoo Finance (10s refresh)');
     console.log('   ✅ Crypto: Binance WebSocket (live streaming)');
-    console.log('🔧 Backend v23.0.0: Yahoo Finance endpoint enabled!');
-    console.log('💡 NO API KEY NEEDED - Yahoo Finance is FREE!');
-    console.log('🚀 Gold price now EXACT MATCH with TradingView!');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);

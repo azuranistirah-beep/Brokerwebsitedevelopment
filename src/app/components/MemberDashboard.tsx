@@ -8,6 +8,7 @@ import {
 import { Button } from "./ui/button";
 import { TradingChart } from "./TradingChart";
 import { useBinancePrice } from "../hooks/useBinancePrice";
+import { usePrices } from "../context/PriceContext"; // ✅ ADD: For Gold/Silver/Oil prices
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
 
 interface Position {
@@ -112,6 +113,9 @@ export function MemberDashboard() {
 
   // ✅ Real-time Binance prices (EXACT MATCH with TradingView)
   const { subscribe, unsubscribe, isConnected } = useBinancePrice();
+  
+  // ✅ FIX: Use PriceContext for Gold/Silver/Oil (Yahoo Finance)
+  const { prices: contextPrices } = usePrices();
 
   // ✅ FIX: Define loadUserProfile as useCallback to fix dependency warning
   const loadUserProfile = useCallback(async (token: string) => {
@@ -274,26 +278,73 @@ export function MemberDashboard() {
 
   // Subscribe to real-time price updates
   useEffect(() => {
-    console.log(`🔄 [MemberDashboard] Subscribing to ${selectedAsset.tradingViewSymbol}`);
+    console.log('');
+    console.log('═══════════════════════════════════════════════');
+    console.log(`🔄 [MemberDashboard] Symbol Changed!`);
+    console.log(`   Asset: ${selectedAsset.name} (${selectedAsset.symbol})`);
+    console.log(`   Category: ${selectedAsset.category}`);
+    console.log(`   TradingView: ${selectedAsset.tradingViewSymbol}`);
+    console.log('═══════════════════════════════════════════════');
+    
+    // ✅ FIX: Reset price to 0 when changing symbol (force update)
+    setCurrentPrice(0);
+    setPreviousPrice(0);
+    console.log(`✅ [MemberDashboard] Price reset to $0 (waiting for updates...)`);
+    
+    // ✅ NEW: Check if this is a Commodity (Gold/Silver/Oil) - use PriceContext!
+    const isCommodity = selectedAsset.category === "Commodity";
+    
+    if (isCommodity) {
+      console.log(`🪙 [MemberDashboard] Commodity detected! Using PriceContext (Yahoo Finance)...`);
+      // Don't subscribe to Binance for commodities
+      console.log(`📡 [MemberDashboard] Waiting for PriceContext updates...`);
+      console.log('═══════════════════════════════════════════════');
+      console.log('');
+      return; // No cleanup needed
+    }
+    
+    // ✅ For Crypto: Use Binance WebSocket
+    console.log(`₿ [MemberDashboard] Crypto detected! Using Binance WebSocket...`);
     
     // Create callback function
     const handlePriceUpdate = (priceData: { symbol: string; price: number; timestamp: number }) => {
       setCurrentPrice(prev => {
         setPreviousPrice(prev);
-        console.log(`💰💰💰 [${selectedAsset.symbol}] PRICE UPDATE: $${prev.toFixed(2)} → $${priceData.price.toFixed(2)}`);
+        console.log(`💰 [${selectedAsset.symbol}] PRICE UPDATE: $${prev.toFixed(2)} → $${priceData.price.toFixed(2)}`);
         return priceData.price;
       });
     };
     
     // Subscribe with the callback
     subscribe(selectedAsset.tradingViewSymbol, handlePriceUpdate);
+    console.log(`📡 [MemberDashboard] Subscribed to ${selectedAsset.tradingViewSymbol}`);
+    console.log('═══════════════════════════════════════════════');
+    console.log('');
 
     // Cleanup
     return () => {
-      console.log(` [MemberDashboard] Unsubscribing from ${selectedAsset.tradingViewSymbol}`);
+      console.log(`🔌 [MemberDashboard] Unsubscribing from ${selectedAsset.tradingViewSymbol}`);
       unsubscribe(selectedAsset.tradingViewSymbol, handlePriceUpdate);
     };
-  }, [selectedAsset.tradingViewSymbol, selectedAsset.symbol, subscribe, unsubscribe]); // ✅ FIX: Add all dependencies
+  }, [selectedAsset.tradingViewSymbol, selectedAsset.symbol, selectedAsset.category, subscribe, unsubscribe]); // ✅ FIX: Add all dependencies
+  
+  // ✅ NEW: Sync price from PriceContext for Commodities (Gold/Silver/Oil)
+  useEffect(() => {
+    const isCommodity = selectedAsset.category === "Commodity";
+    
+    if (isCommodity && contextPrices[selectedAsset.symbol]) {
+      const priceData = contextPrices[selectedAsset.symbol];
+      
+      // Only update if price is different
+      if (priceData.price !== currentPrice) {
+        setCurrentPrice(prev => {
+          setPreviousPrice(prev);
+          console.log(`🪙 [${selectedAsset.symbol}] YAHOO FINANCE UPDATE: $${prev.toFixed(2)} → $${priceData.price.toFixed(2)}`);
+          return priceData.price;
+        });
+      }
+    }
+  }, [contextPrices, selectedAsset.symbol, selectedAsset.category, currentPrice]);
 
   // Check for expired positions
   useEffect(() => {
