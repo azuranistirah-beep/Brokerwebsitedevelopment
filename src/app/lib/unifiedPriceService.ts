@@ -1,7 +1,7 @@
 /**
  * ✅ UNIFIED PRICE SERVICE - REST API POLLING (NO WEBSOCKET!)
  * 
- * VERSION: 30.2.0 - TIMEOUT FIX!
+ * VERSION: 31.0.0 - ANTI-451 FIX!
  * 
  * Strategy:
  * - Using REST API polling instead of WebSocket (avoid CORS issues)
@@ -40,7 +40,7 @@ class UnifiedPriceService {
   private subscribers: Map<string, Set<Subscriber>> = new Map();
   private latestPrices: Map<string, PriceData> = new Map();
   private pollInterval: NodeJS.Timeout | null = null;
-  private readonly VERSION = '30.2.0-TIMEOUT-FIX';
+  private readonly VERSION = '31.0.0-ANTI-451';
   private isPolling: boolean = false;
   
   // Symbol mapping (TradingView format → Binance format)

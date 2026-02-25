@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '38.2.0-TIMEOUT-FIX'; // FIXED: Added timeout handling!
+    const version = '39.0.0-ANTI-451'; // FIXED: Multiple endpoints + CoinGecko fallback!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,12 +31,12 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 38.2.0 - TIMEOUT FIX!');
+    console.log('✅ [App] Version 39.0.0 - ANTI 451 ERROR!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔧 FIXED: Added timeout handling (10s backend, 12s frontend)');
-    console.log('🔧 Backend: AbortController prevents hanging');
-    console.log('🔧 Frontend: Graceful error handling on timeout');
-    console.log('💡 Binance API connection should be stable now!');
+    console.log('🔧 FIXED: Multiple Binance endpoints (api, api1, api2, api3)');
+    console.log('🔧 FIXED: CoinGecko fallback if Binance blocked (451)');
+    console.log('🔧 User-Agent header to bypass blocking');
+    console.log('💡 Price sources: Binance → CoinGecko (automatic)');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);
