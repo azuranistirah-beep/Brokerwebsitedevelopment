@@ -21,3 +21,6 @@ export function ChartPage() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default ChartPage;

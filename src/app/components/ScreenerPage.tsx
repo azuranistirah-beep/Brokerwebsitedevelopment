@@ -115,3 +115,6 @@ export function ScreenerPage() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default ScreenerPage;

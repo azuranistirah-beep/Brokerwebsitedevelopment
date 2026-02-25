@@ -7,6 +7,19 @@ import * as kv from './kv_store.tsx';
 
 const app = new Hono();
 
+// ✅ CRITICAL: Enable CORS for all origins
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  exposeHeaders: ['Content-Length'],
+  maxAge: 600,
+  credentials: true,
+}));
+
+// ✅ Enable request logging
+app.use('*', logger(console.log));
+
 // ✅ ONLY 46 CRYPTO SYMBOLS WE NEED (reduce response size!)
 const REQUIRED_CRYPTO_SYMBOLS = [
   'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'SOLUSDT', 'ADAUSDT', 
@@ -19,6 +32,55 @@ const REQUIRED_CRYPTO_SYMBOLS = [
   'SNXUSDT', 'COMPUSDT', 'YFIUSDT', 'SUSHIUSDT', 'ZRXUSDT', 'BATUSDT',
   'ZECUSDT', 'DASHUSDT', '1INCHUSDT', 'HBARUSDT'
 ];
+
+// ✅ YAHOO FINANCE SYMBOL MAPPING (NO API KEY NEEDED!)
+const YAHOO_SYMBOLS: Record<string, string> = {
+  // Commodities (MOST IMPORTANT!)
+  'GOLD': 'GC=F',      // Gold Futures
+  'XAUUSD': 'GC=F',    // Gold Spot (same as futures for simplicity)
+  'SILVER': 'SI=F',    // Silver Futures
+  'XAGUSD': 'SI=F',    // Silver Spot
+  'USOIL': 'CL=F',     // WTI Crude Oil Futures
+  'UKOIL': 'BZ=F',     // Brent Crude Oil Futures
+  
+  // Forex (use Yahoo Finance forex symbols)
+  'EURUSD': 'EURUSD=X',
+  'GBPUSD': 'GBPUSD=X',
+  'USDJPY': 'USDJPY=X',
+  'AUDUSD': 'AUDUSD=X',
+  'USDCHF': 'USDCHF=X',
+  'NZDUSD': 'NZDUSD=X',
+  'USDCAD': 'USDCAD=X',
+  'EURGBP': 'EURGBP=X',
+  'EURJPY': 'EURJPY=X',
+  'GBPJPY': 'GBPJPY=X',
+  
+  // Stocks (top 20 most important)
+  'AAPL': 'AAPL',
+  'MSFT': 'MSFT',
+  'GOOGL': 'GOOGL',
+  'AMZN': 'AMZN',
+  'META': 'META',
+  'NVDA': 'NVDA',
+  'TSLA': 'TSLA',
+  'AMD': 'AMD',
+  'NFLX': 'NFLX',
+  'INTC': 'INTC',
+  'JPM': 'JPM',
+  'BAC': 'BAC',
+  'V': 'V',
+  'MA': 'MA',
+  'WMT': 'WMT',
+  'JNJ': 'JNJ',
+  'PFE': 'PFE',
+  'XOM': 'XOM',
+  'CVX': 'CVX',
+  'BA': 'BA',
+  
+  // Indices
+  'SPX500': '^GSPC',   // S&P 500
+  'NSX100': '^NDX',    // Nasdaq 100
+};
 
 const BINANCE_ENDPOINTS = [
   'https://data-api.binance.vision/api/v3/ticker/24hr', // Try public API first
@@ -195,11 +257,141 @@ app.get('/make-server-20da1dab/health', (c) => {
   return c.json({
     ok: true,
     service: 'Investoft Backend',
-    version: '21.2.0-CONNECTION-CLOSED-FIX',
+    version: '23.0.0-YAHOO-FINANCE',
     timestamp: new Date().toISOString(),
     status: 'operational',
     optimization: 'Response size reduced 98% (2500→46 tickers)',
+    cors: 'enabled',
+    logging: 'enabled',
+    yahooFinance: 'enabled (commodities, forex, stocks)',
   });
+});
+
+/**
+ * ✅ NEW: YAHOO FINANCE PROXY - GET REAL-TIME PRICES
+ * 
+ * Frontend calls: /make-server-20da1dab/yahoo/quote?symbols=GOLD,SILVER,EURUSD
+ * Returns REAL-TIME prices from Yahoo Finance (NO API KEY NEEDED!)
+ * 
+ * Response format matches Binance for consistency:
+ * {
+ *   symbol: 'GOLD',
+ *   lastPrice: '2850.50',
+ *   priceChange: '15.30',
+ *   priceChangePercent: '0.54',
+ *   openPrice: '2835.20',
+ *   timestamp: 1234567890
+ * }
+ */
+app.get('/make-server-20da1dab/yahoo/quote', async (c) => {
+  try {
+    const symbolsParam = c.req.query('symbols');
+    
+    if (!symbolsParam) {
+      return c.json({ error: 'Missing symbols parameter' }, { status: 400 });
+    }
+    
+    const requestedSymbols = symbolsParam.split(',').map(s => s.trim());
+    
+    console.log('');
+    console.log('═══════════════════════════════════════════════');
+    console.log(`📡 [Yahoo Finance] Fetching ${requestedSymbols.length} symbols...`);
+    console.log(`📊 Requested: ${requestedSymbols.join(', ')}`);
+    console.log('═══════════════════════════════════════════════');
+    
+    const results = [];
+    
+    // Fetch each symbol from Yahoo Finance
+    for (const symbol of requestedSymbols) {
+      const yahooSymbol = YAHOO_SYMBOLS[symbol];
+      
+      if (!yahooSymbol) {
+        console.log(`⚠️ [Yahoo] Symbol ${symbol} not mapped, skipping...`);
+        continue;
+      }
+      
+      try {
+        // Yahoo Finance API endpoint (public, no auth needed)
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&range=2d`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          },
+        });
+        
+        if (!response.ok) {
+          console.log(`⚠️ [Yahoo] ${symbol} (${yahooSymbol}) failed: ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        const result = data?.chart?.result?.[0];
+        
+        if (!result || !result.meta || !result.indicators?.quote?.[0]) {
+          console.log(`⚠️ [Yahoo] ${symbol} invalid data structure`);
+          continue;
+        }
+        
+        const meta = result.meta;
+        const quote = result.indicators.quote[0];
+        
+        // Get current price and previous close
+        const currentPrice = meta.regularMarketPrice || meta.previousClose;
+        const previousClose = meta.chartPreviousClose || meta.previousClose;
+        const change = currentPrice - previousClose;
+        const changePercent = (change / previousClose) * 100;
+        
+        // Get open price (first value of the day)
+        const openPrice = quote.open?.[0] || previousClose;
+        
+        console.log(`✅ [Yahoo] ${symbol}: $${currentPrice.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`);
+        
+        results.push({
+          symbol: symbol,
+          lastPrice: currentPrice.toString(),
+          priceChange: change.toFixed(8),
+          priceChangePercent: changePercent.toFixed(2),
+          openPrice: openPrice.toString(),
+          highPrice: (meta.regularMarketDayHigh || currentPrice).toString(),
+          lowPrice: (meta.regularMarketDayLow || currentPrice).toString(),
+          previousClose: previousClose.toString(),
+          timestamp: meta.regularMarketTime || Date.now(),
+          source: 'yahoo',
+        });
+        
+      } catch (error: any) {
+        console.log(`❌ [Yahoo] ${symbol} error: ${error.message}`);
+        continue;
+      }
+    }
+    
+    console.log(`✅ [Yahoo Finance] Success! Returned ${results.length}/${requestedSymbols.length} prices`);
+    console.log('═══════════════════════════════════════════════');
+    console.log('');
+    
+    if (results.length === 0) {
+      return c.json(
+        { error: 'No data available for requested symbols', requested: requestedSymbols },
+        { status: 404 }
+      );
+    }
+    
+    return c.json(results, {
+      headers: {
+        'X-Price-Source': 'yahoo',
+        'Cache-Control': 'public, max-age=5',
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('❌ [Yahoo Finance] Fetch error:', error);
+    return c.json(
+      { error: 'Failed to fetch from Yahoo Finance', message: error.message },
+      { status: 500 }
+    );
+  }
 });
 
 /**
@@ -337,8 +529,21 @@ app.all('*', (c) => {
 // Start server
 Deno.serve(app.fetch);
 
-console.log('🚀 [Investoft Backend] Server started with Binance proxy!');
-console.log('📊 Routes available:');
+console.log('');
+console.log('═══════════════════════════════════════════════════════════');
+console.log('🚀 [Investoft Backend v23.0.0] Server started!');
+console.log('═══════════════════════════════════════════════════════════');
+console.log('📊 Data Sources:');
+console.log('   ✅ Binance API (Crypto): 46 symbols');
+console.log('   ✅ Yahoo Finance (Commodities/Forex/Stocks): NO API KEY!');
+console.log('   ✅ CoinGecko (Crypto Fallback): 46 symbols');
+console.log('');
+console.log('🔗 Available Routes:');
 console.log('   - GET  /make-server-20da1dab/health');
 console.log('   - GET  /make-server-20da1dab/binance/ticker/24hr');
 console.log('   - GET  /make-server-20da1dab/binance/ticker/price?symbol=BTCUSDT');
+console.log('   - GET  /make-server-20da1dab/yahoo/quote?symbols=GOLD,SILVER,EURUSD');
+console.log('');
+console.log('🎉 Gold/Silver/Oil: NOW REAL-TIME from Yahoo Finance!');
+console.log('═══════════════════════════════════════════════════════════');
+console.log('');

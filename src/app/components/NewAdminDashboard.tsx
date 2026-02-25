@@ -176,3 +176,6 @@ export function NewAdminDashboard({ onLogout, adminName = "Admin", accessToken }
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default NewAdminDashboard;

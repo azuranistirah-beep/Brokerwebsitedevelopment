@@ -266,3 +266,6 @@ export function AdminFirstSetup() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default AdminFirstSetup;

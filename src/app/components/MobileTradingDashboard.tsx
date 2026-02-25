@@ -1514,3 +1514,6 @@ export function MobileTradingDashboard() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default MobileTradingDashboard;

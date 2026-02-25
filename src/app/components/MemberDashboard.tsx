@@ -830,3 +830,6 @@ export function MemberDashboard() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default MemberDashboard;

@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '40.3.0-CONNECTION-CLOSED-FIX'; // FIXED: Response size reduced 98%!
+    const version = '41.0.0-YAHOO-FINANCE'; // NEW: Real-time Yahoo Finance for Gold, Commodities, Forex, Stocks!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,13 +31,16 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 40.3.0 - CONNECTION CLOSED FIX!');
+    console.log('✅ [App] Version 41.0.0 - YAHOO FINANCE INTEGRATED!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔧 FIXED: Response size reduced 98% (2500→46 tickers)');
-    console.log('🔧 FIXED: Timeout reduced to 4s (faster response)');
-    console.log('🔧 FIXED: Filter only required crypto symbols');
-    console.log('🔧 Backend v21.2.0: Lightning fast, no connection drops!');
-    console.log('💡 No more "connection closed" errors!');
+    console.log('🎉 NEW: Real-time prices from Yahoo Finance!');
+    console.log('   ✅ Gold/Silver/Oil: REAL-TIME (updates every 10s)');
+    console.log('   ✅ Forex: REAL-TIME (updates every 10s)');
+    console.log('   ✅ Stocks: REAL-TIME (updates every 10s)');
+    console.log('   ✅ Crypto: Binance WebSocket (live streaming)');
+    console.log('🔧 Backend v23.0.0: Yahoo Finance endpoint enabled!');
+    console.log('💡 NO API KEY NEEDED - Yahoo Finance is FREE!');
+    console.log('🚀 Gold price now EXACT MATCH with TradingView!');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);

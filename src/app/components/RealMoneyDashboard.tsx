@@ -197,3 +197,6 @@ export function RealMoneyDashboard({ accessToken, onLogout }: RealMoneyDashboard
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default RealMoneyDashboard;

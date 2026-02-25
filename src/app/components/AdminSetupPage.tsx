@@ -349,3 +349,6 @@ export function AdminSetupPage({ onSuccess }: AdminSetupPageProps) {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default AdminSetupPage;

@@ -448,3 +448,6 @@ function TermsSection({ number, title, icon, children }: TermsSectionProps) {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default TermsPage;

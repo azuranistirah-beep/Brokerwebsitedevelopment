@@ -278,3 +278,6 @@ function XMark() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default AboutPage;

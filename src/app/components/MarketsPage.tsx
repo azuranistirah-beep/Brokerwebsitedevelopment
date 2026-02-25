@@ -905,3 +905,6 @@ export function MarketsPage() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default MarketsPage;

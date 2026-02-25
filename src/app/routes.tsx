@@ -4,33 +4,33 @@ import { RootLayout } from "./components/RootLayout";
 import { LandingPage } from "./components/LandingPage";
 import { LoginPage } from "./components/LoginPage";
 
-// ✅ Use lazy loading for heavy components
-const AboutPage = lazy(() => import("./components/AboutPage").then(m => ({ default: m.AboutPage })));
-const TermsPage = lazy(() => import("./components/TermsPage").then(m => ({ default: m.TermsPage })));
-const MarketsPage = lazy(() => import("./components/MarketsPage").then(m => ({ default: m.MarketsPage })));
-const ChartPage = lazy(() => import("./components/ChartPage").then(m => ({ default: m.ChartPage })));
-const ScreenerPage = lazy(() => import("./components/ScreenerPage").then(m => ({ default: m.ScreenerPage })));
-const MemberDashboard = lazy(() => import("./components/MemberDashboard").then(m => ({ default: m.MemberDashboard })));
-const MobileTradingDashboard = lazy(() => import("./components/MobileTradingDashboard").then(m => ({ default: m.MobileTradingDashboard })));
-const NewAdminDashboard = lazy(() => import("./components/NewAdminDashboard").then(m => ({ default: m.NewAdminDashboard })));
-const AdminSetupPage = lazy(() => import("./components/AdminSetupPage").then(m => ({ default: m.AdminSetupPage })));
-const AdminFirstSetup = lazy(() => import("./components/AdminFirstSetup").then(m => ({ default: m.AdminFirstSetup })));
-const RealMoneyDashboard = lazy(() => import("./components/RealMoneyDashboard").then(m => ({ default: m.RealMoneyDashboard })));
-const DepositPage = lazy(() => import("./components/DepositPage").then(m => ({ default: m.DepositPage })));
-const MemberDepositPage = lazy(() => import("./components/MemberDepositPage").then(m => ({ default: m.MemberDepositPage })));
-const AuthDiagnosticTool = lazy(() => import("./components/AuthDiagnosticTool").then(m => ({ default: m.AuthDiagnosticTool })));
-const QuickCreateMember = lazy(() => import("./components/QuickCreateMember").then(m => ({ default: m.QuickCreateMember })));
-const TestAccountCreator = lazy(() => import("./components/TestAccountCreator").then(m => ({ default: m.TestAccountCreator })));
-const SimpleAccountCreator = lazy(() => import("./components/SimpleAccountCreator").then(m => ({ default: m.SimpleAccountCreator })));
-const QuickLoginTest = lazy(() => import("./components/QuickLoginTest").then(m => ({ default: m.QuickLoginTest })));
-const BackendTest = lazy(() => import("./components/BackendTest").then(m => ({ default: m.BackendTest })));
-const ComprehensiveTest = lazy(() => import("./components/ComprehensiveTest").then(m => ({ default: m.ComprehensiveTest })));
-const DebugPage = lazy(() => import("./components/DebugPage").then(m => ({ default: m.DebugPage })));
-const TestChart = lazy(() => import("./components/TestChart").then(m => ({ default: m.TestChart })));
-const SupabaseTestPage = lazy(() => import("./components/SupabaseTestPage").then(m => ({ default: m.SupabaseTestPage })));
-const QuickFixDashboard = lazy(() => import("./components/QuickFixDashboard").then(m => ({ default: m.QuickFixDashboard })));
-const DeploymentGuide = lazy(() => import("./components/DeploymentGuide").then(m => ({ default: m.DeploymentGuide })));
-const ManualDeploymentHelper = lazy(() => import("./components/ManualDeploymentHelper").then(m => ({ default: m.ManualDeploymentHelper })));
+// ✅ FIXED: Simplified lazy loading without named exports
+const AboutPage = lazy(() => import("./components/AboutPage"));
+const TermsPage = lazy(() => import("./components/TermsPage"));
+const MarketsPage = lazy(() => import("./components/MarketsPage"));
+const ChartPage = lazy(() => import("./components/ChartPage"));
+const ScreenerPage = lazy(() => import("./components/ScreenerPage"));
+const MemberDashboard = lazy(() => import("./components/MemberDashboard"));
+const MobileTradingDashboard = lazy(() => import("./components/MobileTradingDashboard"));
+const NewAdminDashboard = lazy(() => import("./components/NewAdminDashboard"));
+const AdminSetupPage = lazy(() => import("./components/AdminSetupPage"));
+const AdminFirstSetup = lazy(() => import("./components/AdminFirstSetup"));
+const RealMoneyDashboard = lazy(() => import("./components/RealMoneyDashboard"));
+const DepositPage = lazy(() => import("./components/DepositPage"));
+const MemberDepositPage = lazy(() => import("./components/MemberDepositPage"));
+const AuthDiagnosticTool = lazy(() => import("./components/AuthDiagnosticTool"));
+const QuickCreateMember = lazy(() => import("./components/QuickCreateMember"));
+const TestAccountCreator = lazy(() => import("./components/TestAccountCreator"));
+const SimpleAccountCreator = lazy(() => import("./components/SimpleAccountCreator"));
+const QuickLoginTest = lazy(() => import("./components/QuickLoginTest"));
+const BackendTest = lazy(() => import("./components/BackendTest"));
+const ComprehensiveTest = lazy(() => import("./components/ComprehensiveTest"));
+const DebugPage = lazy(() => import("./components/DebugPage"));
+const TestChart = lazy(() => import("./components/TestChart"));
+const SupabaseTestPage = lazy(() => import("./components/SupabaseTestPage"));
+const QuickFixDashboard = lazy(() => import("./components/QuickFixDashboard"));
+const DeploymentGuide = lazy(() => import("./components/DeploymentGuide"));
+const ManualDeploymentHelper = lazy(() => import("./components/ManualDeploymentHelper"));
 
 // Loading fallback component
 const LoadingFallback = () => (

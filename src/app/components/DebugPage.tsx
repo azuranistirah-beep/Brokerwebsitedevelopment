@@ -83,3 +83,6 @@ export function DebugPage() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default DebugPage;

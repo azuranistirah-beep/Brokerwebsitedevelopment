@@ -53,3 +53,6 @@ export function TestChart() {
     </div>
   );
 }
+
+// ✅ Default export for lazy loading
+export default TestChart;
