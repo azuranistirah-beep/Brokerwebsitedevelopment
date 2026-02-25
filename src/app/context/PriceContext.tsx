@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { unifiedPriceService } from '../lib/unifiedPriceService';
+import { tvPriceService } from '../lib/tvPriceService';
 
 interface PriceData {
   price: number;
@@ -71,32 +71,53 @@ export function PriceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('🔌 [PriceContext] Initializing real-time price subscriptions for ALL symbols...');
+    console.log(`📊 [PriceContext] Total symbols to subscribe: ${ALL_SYMBOLS.length}`);
+    
+    // ✅ Get initial prices from cache (if available)
+    const initialPrices: Record<string, PriceData> = {};
+    ALL_SYMBOLS.forEach((symbol) => {
+      const cached = tvPriceService.getPrice(symbol);
+      if (cached) {
+        initialPrices[symbol] = {
+          price: cached.price,
+          change: cached.change24h,
+          changePercent: cached.changePercent24h,
+          change24h: cached.changePercent24h,
+          basePrice: cached.price,
+          timestamp: cached.timestamp,
+        };
+      }
+    });
+    
+    if (Object.keys(initialPrices).length > 0) {
+      console.log(`✅ [PriceContext] Loaded ${Object.keys(initialPrices).length} initial prices from cache`);
+      setPrices(initialPrices);
+    }
     
     const unsubscribeFunctions: (() => void)[] = [];
 
-    // Subscribe to ALL symbols
+    // Subscribe to ALL symbols for live updates
     ALL_SYMBOLS.forEach((symbol) => {
-      const unsubscribe = unifiedPriceService.subscribe(symbol, (priceData) => {
+      const unsubscribe = tvPriceService.subscribe(symbol, (priceData) => {
         setPrices((prevPrices) => {
           const existing = prevPrices[symbol];
           const basePrice = existing?.basePrice || priceData.price;
-          const change = priceData.price - basePrice;
-          const changePercent = basePrice > 0 ? (change / basePrice) * 100 : 0;
 
-          // Only log Bitcoin for monitoring (reduce console spam)
-          if (symbol === 'BTCUSD') {
-            console.log(`💰 [PriceContext] ${symbol} = $${priceData.price.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`);
+          // Log first 10 successful price updates
+          const priceCount = Object.keys(prevPrices).length;
+          if (priceCount < 10 || symbol === 'BTCUSD' || symbol === 'ETHUSD') {
+            console.log(`💰 [PriceContext] ${symbol} = $${priceData.price.toLocaleString()} (24h: ${priceData.changePercent24h >= 0 ? '+' : ''}${priceData.changePercent24h.toFixed(2)}%)`);
           }
 
           return {
             ...prevPrices,
             [symbol]: {
               price: priceData.price,
-              change,
-              changePercent,
-              change24h: changePercent, // Use same value for now
+              change: priceData.change24h,
+              changePercent: priceData.changePercent24h,
+              change24h: priceData.changePercent24h,
               basePrice,
-              timestamp: Date.now(),
+              timestamp: priceData.timestamp,
             },
           };
         });
@@ -105,7 +126,7 @@ export function PriceProvider({ children }: { children: ReactNode }) {
       unsubscribeFunctions.push(unsubscribe);
     });
 
-    console.log(`✅ [PriceContext] Subscribed to ${ALL_SYMBOLS.length} symbols`);
+    console.log(`✅ [PriceContext] Subscribed to ${ALL_SYMBOLS.length} symbols for live updates`);
 
     // Cleanup
     return () => {

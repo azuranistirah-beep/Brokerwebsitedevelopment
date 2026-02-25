@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { CreditCard, Wallet, Building2, Smartphone, Shield, CheckCircle, ArrowRight, DollarSign, Lock, Zap } from "lucide-react";
-import { useAppContext } from "../hooks/useAppContext";
+import { useOutletContext } from "react-router";
+import type { AppContextType } from "../hooks/useAppContext";
 import { AuthModal } from "./AuthModal";
 
 export function DepositPage() {
-  const { isAuthenticated, userRole } = useAppContext();
+  const { isAuthenticated, userRole } = useOutletContext<AppContextType>();
   const navigate = useNavigate();
   const [showAuthModal, setShowAuthModal] = useState(false);
   

@@ -4,7 +4,7 @@
 # Project Reference
 # IMPORTANT: Replace this with your actual Supabase Project Reference ID
 # You can find this in your Supabase Dashboard under Project Settings > General
-project_id = "nvocyxqxlxqxdzioxgrw"
+project_id = "N0cQmKQIBtKIa5VgEQp7d7"
 
 [api]
 enabled = true

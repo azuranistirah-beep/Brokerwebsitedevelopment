@@ -1,7 +1,8 @@
 import { Card } from "./ui/card";
 import { motion } from "motion/react";
 import { useState, useEffect } from "react";
-import { unifiedPriceService } from "../lib/unifiedPriceService";
+import { tvPriceService } from "../lib/tvPriceService";
+import { ArrowUp, ArrowDown } from "lucide-react";
 
 interface TickerItem {
   symbol: string;
@@ -37,15 +38,14 @@ export function MarketTicker() {
     const cryptoSymbols = ['BTCUSD', 'ETHUSD', 'SOLUSD'];
     
     cryptoSymbols.forEach((symbol) => {
-      const unsubscribe = unifiedPriceService.subscribe(symbol, (newPrice) => {
+      const unsubscribe = tvPriceService.subscribe(symbol, (priceData) => {
         setTickerItems((prevItems) => {
           return prevItems.map((item) => {
             if (item.symbol === symbol) {
-              const change = ((newPrice - item.basePrice) / item.basePrice) * 100;
               return {
                 ...item,
-                price: newPrice,
-                change: Number(change.toFixed(2)),
+                price: priceData.price,
+                change: priceData.changePercent24h,
               };
             }
             return item;

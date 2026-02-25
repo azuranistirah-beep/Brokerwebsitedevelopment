@@ -18,7 +18,10 @@ export function PublicFooter() {
   return (
     <footer className="border-t border-slate-800 bg-slate-950 pt-16 pb-8 text-slate-400">
       <div className="container mx-auto px-4">
-        <div className="grid md:grid-cols-5 gap-12 mb-12">
+        {/* Main Footer Grid - Simetris 4 kolom */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 mb-12">
+          
+          {/* Column 1: Brand */}
           <div>
             <Link to="/" className="flex items-center gap-2 mb-6 cursor-pointer">
               <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded p-1">
@@ -26,54 +29,47 @@ export function PublicFooter() {
               </div>
               <span className="text-xl font-bold text-white">Investoft</span>
             </Link>
-            <p className="text-sm">
-              Advanced trading platform for everyone. Trade with confidence and precision.
+            <p className="text-sm leading-relaxed">
+              Professional trading platform for learning cryptocurrency markets with real-time data.
             </p>
           </div>
           
+          {/* Column 2: Products & Markets */}
           <div>
-            <h4 className="font-bold text-white mb-4">Products</h4>
+            <h4 className="font-bold text-white mb-4">Trading</h4>
             <ul className="space-y-2 text-sm">
+              <li><Link to="/markets" className="hover:text-blue-400 transition-colors">Markets</Link></li>
               <li><Link to="/cryptocurrency" className="hover:text-blue-400 transition-colors">Cryptocurrency</Link></li>
               <li><Link to="/screener" className="hover:text-blue-400 transition-colors">Screener</Link></li>
-              <li><Link to="/markets" className="hover:text-blue-400 transition-colors">Trading Platform</Link></li>
-              <li><Link to="/cryptocurrency" className="hover:text-blue-400 transition-colors">Indicators</Link></li>
+              <li><Link to="/markets?filter=crypto" className="hover:text-blue-400 transition-colors">Crypto Trading</Link></li>
             </ul>
           </div>
 
+          {/* Column 3: Resources */}
           <div>
-            <h4 className="font-bold text-white mb-4">Markets</h4>
+            <h4 className="font-bold text-white mb-4">Resources</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/markets?filter=stocks" className="hover:text-blue-400 transition-colors">Stocks</Link></li>
-              <li><Link to="/markets?filter=forex" className="hover:text-blue-400 transition-colors">Forex</Link></li>
-              <li><Link to="/markets?filter=crypto" className="hover:text-blue-400 transition-colors">Crypto</Link></li>
-              <li><Link to="/markets?filter=commodities" className="hover:text-blue-400 transition-colors">Commodities</Link></li>
+              <li><Link to="/about" className="hover:text-blue-400 transition-colors">About</Link></li>
+              <li><Link to="/terms" className="hover:text-blue-400 transition-colors">Terms & Conditions</Link></li>
+              <li><button onClick={() => openLegal("privacy")} className="text-sm hover:text-blue-400 transition-colors text-left">Privacy Policy</button></li>
+              <li><button onClick={() => openLegal("risk")} className="text-sm hover:text-blue-400 transition-colors text-left">Risk Disclosure</button></li>
             </ul>
           </div>
 
+          {/* Column 4: Support */}
           <div>
-            <h4 className="font-bold text-white mb-4">Community</h4>
+            <h4 className="font-bold text-white mb-4">Support</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link to="/screener" className="hover:text-blue-400 transition-colors">Trading Ideas</Link></li>
-              <li><Link to="/cryptocurrency" className="hover:text-blue-400 transition-colors">Scripts</Link></li>
-              <li><a href="#education" className="hover:text-blue-400 transition-colors">Education</a></li>
-              <li><a href="#blog" className="hover:text-blue-400 transition-colors">Blog</a></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-bold text-white mb-4">Company</h4>
-            <ul className="space-y-2 text-sm">
-              <li><a href="#about" className="hover:text-blue-400 transition-colors">About</a></li>
-              <li><a href="#careers" className="hover:text-blue-400 transition-colors">Careers</a></li>
-              <li><a href="#contact" className="hover:text-blue-400 transition-colors">Contact</a></li>
-              <li><a href="#support" className="hover:text-blue-400 transition-colors">Support</a></li>
+              <li><Link to="/login" className="hover:text-blue-400 transition-colors">Login</Link></li>
+              <li><Link to="/deposit" className="hover:text-blue-400 transition-colors">Deposit</Link></li>
+              <li><a href="#help" className="hover:text-blue-400 transition-colors">Help Center</a></li>
             </ul>
           </div>
         </div>
         
-        <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-sm">
-          <p>
+        {/* Bottom Bar */}
+        <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row items-center justify-between text-sm gap-4">
+          <p className="text-center md:text-left">
             &copy; 2026 Investoft
             <span 
               onClick={() => setAdminLoginOpen(true)}
@@ -83,10 +79,10 @@ export function PublicFooter() {
               .
             </span> All rights reserved.
           </p>
-          <div className="flex gap-6 mt-4 md:mt-0">
-             <button onClick={() => openLegal("terms")} className="hover:text-blue-400">Terms</button>
-             <button onClick={() => openLegal("privacy")} className="hover:text-blue-400">Privacy</button>
-             <button onClick={() => openLegal("risk")} className="hover:text-blue-400">Risk Disclosure</button>
+          <div className="flex gap-6">
+            <Link to="/terms" className="text-sm hover:text-blue-400 transition-colors">Terms</Link>
+            <button onClick={() => openLegal("privacy")} className="text-sm hover:text-blue-400 transition-colors">Privacy</button>
+            <button onClick={() => openLegal("risk")} className="text-sm hover:text-blue-400 transition-colors">Risk Disclosure</button>
           </div>
         </div>
       </div>

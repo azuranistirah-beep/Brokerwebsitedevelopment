@@ -13,7 +13,7 @@ import { useSearchParams } from "react-router";
 import { PopularAssets } from "./PopularAssets";
 import { projectId, publicAnonKey } from "/utils/supabase/info";
 import { TradeResultModal } from "./TradeResultModal";
-import { unifiedPriceService } from "../lib/unifiedPriceService";
+import { tvPriceService } from "../lib/tvPriceService";
 
 interface DemoAccount {
   balance: number;
@@ -153,7 +153,7 @@ const getMarketStatus = (symbol: string): { isOpen: boolean; message: string } =
 
 export function MarketsPage() {
   // Debug log at component mount
-  console.log('🎬 [MarketsPage] Component mounted - Using unifiedPriceService for real-time prices');
+  console.log('🎬 [MarketsPage] Component mounted - Using tvPriceService for real-time prices');
   
   const [searchParams] = useSearchParams();
   const [selectedSymbol, setSelectedSymbol] = useState("BINANCE:BTCUSDT");
@@ -315,7 +315,7 @@ export function MarketsPage() {
 
     console.log(`🔌 [MarketsPage] Subscribing to ${binanceSymbol} (from ${selectedSymbol})...`);
     
-    const unsubscribe = unifiedPriceService.subscribe(binanceSymbol, (priceData) => {
+    const unsubscribe = tvPriceService.subscribe(binanceSymbol, (priceData) => {
       console.log(`💹 [MarketsPage] Price update for ${binanceSymbol}: $${priceData.price.toFixed(2)}`);
       setCurrentPrice(prev => {
         setPreviousPrice(prev);

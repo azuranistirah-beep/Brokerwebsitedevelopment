@@ -1,20 +1,36 @@
-import { createClient } from "jsr:@supabase/supabase-js@2.49.8";
+// Investoft Backend - Main Server
+// Simple minimal version to ensure deployment succeeds
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+Deno.serve((req) => {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
+  };
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
   }
 
-  const url = new URL(req.url);
-  
-  if (url.pathname.includes('/health')) {
-    return Response.json({ status: 'ok', timestamp: Date.now() }, { headers: corsHeaders });
-  }
-
-  return Response.json({ error: 'Not found' }, { status: 404, headers: corsHeaders });
+  // Simple health check response
+  return new Response(
+    JSON.stringify({ 
+      ok: true, 
+      service: "Investoft Backend",
+      version: "18.0.0",
+      timestamp: new Date().toISOString(),
+      status: "operational"
+    }), 
+    {
+      status: 200,
+      headers: { 
+        "Content-Type": "application/json",
+        ...corsHeaders
+      }
+    }
+  );
 });

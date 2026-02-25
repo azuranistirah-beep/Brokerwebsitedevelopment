@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Test Binance Proxy - Investoft</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .status-box {
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+
+        .status-waiting {
+            background: #fff3cd;
+            color: #856404;
+            border: 2px solid #ffeaa7;
+        }
+
+        .status-loading {
+            background: #cce5ff;
+            color: #004085;
+            border: 2px solid #b8daff;
+        }
+
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .price-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .price-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .price-card .symbol {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .price-card .price {
+            font-size: 18px;
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+
+        .info-box h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .info-box p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .endpoint {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            word-break: break-all;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 600px) {
+            .stats {
+                grid-template-columns: 1fr;
+            }
+            
+            .price-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>
+            🧪 Test Binance Proxy
+        </h1>
+        <p class="subtitle">Investoft Trading Platform - Edge Function Testing</p>
+
+        <div id="status" class="status-box status-waiting">
+            ⏳ Ready to test. Click the button below to start.
+        </div>
+
+        <button id="testBtn" onclick="testBinanceProxy()">
+            🚀 Test Binance Proxy Now
+        </button>
+
+        <div class="info-box">
+            <h3>📡 Endpoint Information</h3>
+            <p><strong>URL:</strong></p>
+            <div class="endpoint" id="endpoint">
+                https://nvocyxqxlxqxdzioxgrw.supabase.co/functions/v1/binance-proxy
+            </div>
+            <p style="margin-top: 10px;">
+                <strong>Method:</strong> GET<br>
+                <strong>Auth:</strong> None (Public Function)<br>
+                <strong>Response:</strong> JSON array of crypto prices
+            </p>
+        </div>
+
+        <div id="results" class="results">
+            <h3>📊 Test Results</h3>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalSymbols">-</div>
+                    <div class="stat-label">Total Symbols</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="responseTime">-</div>
+                    <div class="stat-label">Response Time</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="dataSize">-</div>
+                    <div class="stat-label">Data Size</div>
+                </div>
+            </div>
+
+            <h4 style="margin-top: 20px; color: #333;">💰 Sample Prices (First 12)</h4>
+            <div id="priceGrid" class="price-grid"></div>
+
+            <h4 style="margin-top: 20px; color: #333;">📄 Raw Response (First 5 items)</h4>
+            <div id="rawData" class="code-block"></div>
+        </div>
+    </div>
+
+    <script>
+        const PROXY_URL = 'https://nvocyxqxlxqxdzioxgrw.supabase.co/functions/v1/binance-proxy';
+
+        async function testBinanceProxy() {
+            const statusBox = document.getElementById('status');
+            const resultsBox = document.getElementById('results');
+            const testBtn = document.getElementById('testBtn');
+            
+            // Update UI to loading state
+            statusBox.className = 'status-box status-loading';
+            statusBox.innerHTML = '<div class="spinner"></div> Testing Binance Proxy...';
+            testBtn.disabled = true;
+            resultsBox.classList.remove('show');
+
+            const startTime = performance.now();
+
+            try {
+                console.log('🧪 Testing Binance Proxy...');
+                console.log('📡 URL:', PROXY_URL);
+
+                const response = await fetch(PROXY_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+
+                console.log('📊 Response Status:', response.status);
+                console.log('⏱️ Response Time:', responseTime + 'ms');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                console.log('✅ Data received:', data.length, 'symbols');
+
+                // Calculate data size
+                const dataSize = new Blob([JSON.stringify(data)]).size;
+                const dataSizeKB = (dataSize / 1024).toFixed(2);
+
+                // Update success status
+                statusBox.className = 'status-box status-success';
+                statusBox.innerHTML = `✅ Success! Binance Proxy is working perfectly.<br>
+                    Fetched ${data.length} crypto prices in ${responseTime}ms.`;
+
+                // Update stats
+                document.getElementById('totalSymbols').textContent = data.length;
+                document.getElementById('responseTime').textContent = responseTime + 'ms';
+                document.getElementById('dataSize').textContent = dataSizeKB + ' KB';
+
+                // Show sample prices (first 12)
+                const priceGrid = document.getElementById('priceGrid');
+                priceGrid.innerHTML = '';
+                
+                data.slice(0, 12).forEach(ticker => {
+                    const card = document.createElement('div');
+                    card.className = 'price-card';
+                    card.innerHTML = `
+                        <div class="symbol">${ticker.symbol}</div>
+                        <div class="price">$${parseFloat(ticker.price).toLocaleString()}</div>
+                    `;
+                    priceGrid.appendChild(card);
+                });
+
+                // Show raw data (first 5 items)
+                const rawData = document.getElementById('rawData');
+                rawData.textContent = JSON.stringify(data.slice(0, 5), null, 2);
+
+                // Show results
+                resultsBox.classList.add('show');
+
+                console.log('🎉 Test completed successfully!');
+
+            } catch (error) {
+                console.error('❌ Test failed:', error);
+
+                statusBox.className = 'status-box status-error';
+                statusBox.innerHTML = `❌ Error: ${error.message}<br><br>
+                    <strong>Possible reasons:</strong><br>
+                    • Edge Function not deployed yet<br>
+                    • Network connection issue<br>
+                    • Supabase service temporarily unavailable<br><br>
+                    <strong>Solution:</strong><br>
+                    1. Deploy function: <code>supabase functions deploy binance-proxy</code><br>
+                    2. Wait 30-60 seconds after deployment<br>
+                    3. Try testing again`;
+            } finally {
+                testBtn.disabled = false;
+            }
+        }
+
+        // Auto-test on page load (optional)
+        // window.addEventListener('load', () => {
+        //     setTimeout(testBinanceProxy, 1000);
+        // });
+    </script>
+</body>
+</html>

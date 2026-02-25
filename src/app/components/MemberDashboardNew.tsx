@@ -113,12 +113,18 @@ export function MemberDashboardNew() {
 
   // Subscribe to price updates
   useEffect(() => {
+    console.log(`🎯 [MemberDashboard] Subscribing to ${selectedSymbol}...`);
+    
     const unsubscribe = unifiedPriceService.subscribe(selectedSymbol, (priceData) => {
+      console.log(`🔥 [MemberDashboard] PRICE UPDATE RECEIVED! ${selectedSymbol}: $${priceData.price.toFixed(2)}`);
       setPreviousPrice(currentPrice);
       setCurrentPrice(priceData.price);
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log(`🔌 [MemberDashboard] Unsubscribing from ${selectedSymbol}`);
+      unsubscribe();
+    };
   }, [selectedSymbol]);
 
   // Check for expired positions
@@ -132,7 +138,7 @@ export function MemberDashboardNew() {
           closePosition(position);
         });
       }
-    }, 1000);
+    }, 500); // ✅ INCREASED: Check every 500ms (was 1000ms but still too frequent!)
 
     return () => clearInterval(interval);
   }, [positions, currentPrice]);

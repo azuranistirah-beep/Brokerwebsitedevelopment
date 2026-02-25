@@ -67,7 +67,7 @@ const DURATIONS = [
 
 const AMOUNTS = [10, 25, 50, 100, 250, 500, 1000];
 
-export default function MemberDashboard() {
+export function MemberDashboard() {
   const navigate = useNavigate();
   
   // User & Auth
@@ -93,6 +93,22 @@ export default function MemberDashboard() {
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [showAmountModal, setShowAmountModal] = useState(false);
+  const [showDeployBanner, setShowDeployBanner] = useState(false);
+
+  // ✅ VERSION INDICATOR
+  useEffect(() => {
+    console.log('📊 [MemberDashboard] Component loaded v26.1.0');
+    console.log('✅ Using UnifiedPriceService with binance-proxy');
+    
+    // Show deploy banner if prices not working after 5 seconds
+    const timer = setTimeout(() => {
+      if (currentPrice === 0) {
+        setShowDeployBanner(true);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [currentPrice]);
 
   // ✅ Real-time Binance prices (EXACT MATCH with TradingView)
   const { subscribe, unsubscribe, isConnected } = useBinancePrice();
@@ -207,7 +223,8 @@ export default function MemberDashboard() {
 
   const savePosition = useCallback(async (position: Position) => {
     try {
-      await fetch(
+      // ✅ BACKEND DETERMINES ENTRY PRICE (Single Source of Truth!)
+      const response = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/trades`,
         {
           method: "POST",
@@ -218,14 +235,27 @@ export default function MemberDashboard() {
           body: JSON.stringify({
             user_id: localStorage.getItem("userId"),
             asset: position.asset,
+            symbol: position.asset, // For backend to fetch from prices table
             type: position.type,
             amount: position.amount,
-            entry_price: position.entryPrice,
+            // ❌ DON'T send entry_price - let backend determine it!
+            // entry_price: position.entryPrice,
             duration: position.duration,
             account_type: accountType,
           }),
         }
       );
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ [Backend] Entry price confirmed:', result.entry_price);
+        
+        // Update position with actual entry price from backend
+        if (result.entry_price && result.entry_price !== position.entryPrice) {
+          console.log(`📊 [Price Sync] Frontend: $${position.entryPrice.toFixed(2)} → Backend: $${result.entry_price.toFixed(2)}`);
+          position.entryPrice = result.entry_price;
+        }
+      }
     } catch (error) {
       console.error("Error saving position:", error);
     }
@@ -260,7 +290,7 @@ export default function MemberDashboard() {
 
     // Cleanup
     return () => {
-      console.log(`�� [MemberDashboard] Unsubscribing from ${selectedAsset.tradingViewSymbol}`);
+      console.log(` [MemberDashboard] Unsubscribing from ${selectedAsset.tradingViewSymbol}`);
       unsubscribe(selectedAsset.tradingViewSymbol, handlePriceUpdate);
     };
   }, [selectedAsset.tradingViewSymbol, selectedAsset.symbol, subscribe, unsubscribe]); // ✅ FIX: Add all dependencies
@@ -287,9 +317,9 @@ export default function MemberDashboard() {
           closePosition(position);
         });
 
-        return stillOpen;
+        return prevPositions;
       });
-    }, 100); // Check every 100ms for accuracy
+    }, 500); // ✅ INCREASED: Check every 500ms (was 100ms - too aggressive!)
 
     return () => clearInterval(interval);
   }, [closePosition]); // ✅ FIX: Add closePosition to dependencies
@@ -784,6 +814,16 @@ export default function MemberDashboard() {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Deploy Banner */}
+      {showDeployBanner && (
+        <div className="fixed bottom-4 left-4 right-4 bg-red-500 text-white p-4 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-4">
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            <p className="text-sm">Price feed not working. Please refresh the page or contact support.</p>
           </div>
         </div>
       )}

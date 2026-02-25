@@ -21,7 +21,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
+          'react-vendor': ['react', 'react-dom', 'react-router'],
           'supabase': ['@supabase/supabase-js'],
           'ui': [
             '@radix-ui/react-dialog',
@@ -30,17 +30,32 @@ export default defineConfig({
             '@radix-ui/react-tabs',
           ],
         },
+        // ✅ Add hash to filenames for cache busting
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
       },
     },
     // Source maps for debugging
     sourcemap: true,
     // Reduce chunk size warnings threshold
     chunkSizeWarningLimit: 1000,
+    // ✅ Target modern browsers to support dynamic imports
+    target: 'es2020',
+    // ✅ Ensure proper module format
+    modulePreload: {
+      polyfill: true,
+    },
   },
   server: {
     // Force reload on file changes
     hmr: {
       overlay: true,
+    },
+    // ✅ Add headers for CORS
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
     },
   },
   optimizeDeps: {
@@ -49,9 +64,14 @@ export default defineConfig({
     include: [
       'react',
       'react-dom',
+      'react-router',
       '@supabase/supabase-js',
       'sonner',
       'lucide-react',
     ],
+    // ✅ Exclude problematic dependencies from pre-bundling
+    exclude: ['@supabase/supabase-js'],
   },
+  // ✅ Ensure proper base URL
+  base: '/',
 });

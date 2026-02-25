@@ -76,7 +76,14 @@ export function LiveMarketOverview() {
 
   // Get price data for a symbol
   const getPriceData = (symbol: string) => {
-    return prices[symbol] || { price: 0, change: 0, changePercent: 0, basePrice: 0, timestamp: 0 };
+    const priceData = prices[symbol];
+    
+    // Return fallback if no data yet
+    if (!priceData || !priceData.price) {
+      return { price: 0, change: 0, changePercent: 0, basePrice: 0, timestamp: 0 };
+    }
+    
+    return priceData;
   };
 
   return (

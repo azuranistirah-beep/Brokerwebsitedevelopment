@@ -24,6 +24,8 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
     setLoading(true);
 
     try {
+      console.log("🔐 Attempting admin login for:", email);
+
       // Sign in with Supabase
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -31,9 +33,9 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
       });
 
       if (signInError) {
-        // Provide more helpful error messages
+        console.error("❌ Sign in error:", signInError);
         if (signInError.message.includes('Invalid login credentials')) {
-          setError('Invalid email or password. Please check your admin credentials.');
+          setError('Invalid email or password. Make sure you created the admin account first at /admin-first-setup');
         } else if (signInError.message.includes('Email not confirmed')) {
           setError('Email not confirmed. Please verify your email address.');
         } else {
@@ -44,44 +46,31 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
       }
 
       if (!data.session) {
+        console.error("❌ No session created");
         setError("Login failed - no session created");
         setLoading(false);
         return;
       }
 
-      // Check if user is admin
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/profile`,
-        {
-          headers: {
-            Authorization: `Bearer ${data.session.access_token}`,
-          },
-        }
-      );
+      console.log("✅ Sign in successful!");
 
-      if (!response.ok) {
-        setError("Failed to fetch user profile");
+      // Verify admin email
+      if (data.user.email !== "admin@investoft.com") {
+        console.error("❌ User is not admin:", data.user.email);
+        setError("Access denied - Only admin@investoft.com can access admin panel");
         await supabase.auth.signOut();
         setLoading(false);
         return;
       }
 
-      const result = await response.json();
-
-      // Verify user is admin
-      if (result.user.role !== "admin") {
-        setError("Access denied - Admin privileges required");
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
+      console.log("✅ Admin access granted!");
 
       // Success!
       onSuccess(data.session.access_token, data.user.id);
       onClose();
     } catch (err) {
-      console.error("Admin login error:", err);
-      setError("An unexpected error occurred. Please try again.");
+      console.error("❌ Admin login error:", err);
+      setError(`Connection error: ${err instanceof Error ? err.message : 'Please try again'}`);
     } finally {
       setLoading(false);
     }
@@ -132,18 +121,21 @@ export function AdminLoginModal({ isOpen, onClose, onSuccess }: AdminLoginModalP
           </div>
 
           {/* Body */}
-          <form onSubmit={handleLogin} className="relative p-8 pt-0 space-y-5">
+          <form onSubmit={handleLogin} className="space-y-4">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top-2 duration-200">
-                <div className="bg-red-500/20 p-1 rounded-lg flex-shrink-0">
-                  <AlertCircle className="h-4 w-4 text-red-400" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-red-200 font-medium">Authentication Error</p>
-                  <p className="text-xs text-red-300/80 mt-0.5">{error}</p>
-                </div>
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-400 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-200">{error}</p>
               </div>
             )}
+
+            {/* Info Banner */}
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+              <p className="text-xs text-blue-300/90">
+                Only <strong>admin@investoft.com</strong> can access this panel. 
+                Create admin account at <code className="text-blue-200 bg-blue-900/30 px-1.5 py-0.5 rounded">/admin-first-setup</code>
+              </p>
+            </div>
 
             {/* Email Field */}
             <div className="space-y-2">

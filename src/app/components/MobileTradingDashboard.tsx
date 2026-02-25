@@ -11,7 +11,6 @@ import {
 import { TradingChart } from "./TradingChart";
 import { usePrices } from "../context/PriceContext";
 import { projectId, publicAnonKey } from "../../../utils/supabase/info";
-import { useAppContext } from "../context/AppContext";
 
 // ✅ UPDATED: Duration options from 5 seconds to 1 day
 const DURATIONS = [
@@ -338,10 +337,28 @@ const ASSETS: Asset[] = [
   { symbol: "ABNB", tradingViewSymbol: "NASDAQ:ABNB", name: "Airbnb", flag: "https://logo.clearbit.com/airbnb.com", percentage: "90%", category: "Stocks", price: 142.80, change: 2.1 },
 ];
 
-export default function MobileTradingDashboard() {
+export function MobileTradingDashboard() {
   const navigate = useNavigate();
   const { prices, getPrice } = usePrices(); // ✅ FIXED: Only destructure what exists
-  const { user, isAuthenticated } = useAppContext();
+  
+  // Get user info from localStorage
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  
+  useEffect(() => {
+    const token = localStorage.getItem('investoft_token');
+    const userId = localStorage.getItem('investoft_user_id');
+    const userEmail = localStorage.getItem('investoft_user_email');
+    
+    if (token && userId) {
+      setIsAuthenticated(true);
+      setUser({
+        id: userId,
+        email: userEmail,
+        demo_balance: 10000 // Default demo balance
+      });
+    }
+  }, []);
   
   // Handle image logo errors with fallback
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -431,79 +448,11 @@ export default function MobileTradingDashboard() {
     setLastPrice(currentPrice);
   }, [currentPrice]);
 
-  // Fetch ALL cryptocurrencies from CoinGecko API (3500+)
+  // ❌ DISABLED: CoinGecko fetch causing CORS errors
+  // Using static ASSETS list instead
   useEffect(() => {
-    const fetchAllCryptos = async () => {
-      if (allCryptos.length > 0) return; // Already loaded
-      
-      setIsLoadingCryptos(true);
-      console.log("🦎 Fetching ALL cryptocurrencies from CoinGecko...");
-      
-      try {
-        const allCryptoData: Asset[] = [];
-        const perPage = 250; // Max per page
-        const maxPages = 40; // 40 * 250 = 10,000 crypto (cover semua)
-        
-        // Fetch multiple pages in batches
-        for (let page = 1; page <= maxPages; page++) {
-          try {
-            const response = await fetch(
-              `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/crypto?per_page=${perPage}&page=${page}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${publicAnonKey}`,
-                },
-              }
-            );
-            
-            if (!response.ok) {
-              console.warn(`⚠️ Page ${page} failed:`, response.status);
-              break; // Stop if API limit reached
-            }
-            
-            const data = await response.json();
-            
-            if (!Array.isArray(data) || data.length === 0) {
-              console.log(`✅ Reached end at page ${page}`);
-              break; // No more data
-            }
-            
-            // Transform to Asset format
-            const cryptoAssets: Asset[] = data.map((coin: any) => ({
-              symbol: coin.symbol.toUpperCase(),
-              name: coin.name,
-              flag: coin.image,
-              percentage: "90%", // Default percentage
-              tradingViewSymbol: `BINANCE:${coin.symbol.toUpperCase()}USDT`,
-              category: "Crypto",
-              price: coin.current_price,
-              change: coin.price_change_percentage_24h_in_currency || 0
-            }));
-            
-            allCryptoData.push(...cryptoAssets);
-            console.log(`✅ Loaded page ${page}: ${cryptoAssets.length} cryptos (Total: ${allCryptoData.length})`);
-            
-            // Add delay to avoid rate limiting
-            if (page < maxPages) {
-              await new Promise(resolve => setTimeout(resolve, 100));
-            }
-          } catch (error) {
-            console.error(`❌ Error fetching page ${page}:`, error);
-            break;
-          }
-        }
-        
-        setAllCryptos(allCryptoData);
-        console.log(`🎉 Loaded ${allCryptoData.length} total cryptocurrencies!`);
-        
-      } catch (error) {
-        console.error("❌ Error fetching cryptocurrencies:", error);
-      } finally {
-        setIsLoadingCryptos(false);
-      }
-    };
-    
-    fetchAllCryptos();
+    console.log("ℹ️ Using static crypto list (CoinGecko fetch disabled)");
+    setIsLoadingCryptos(false);
   }, []);
 
   // Update active trades countdown and results

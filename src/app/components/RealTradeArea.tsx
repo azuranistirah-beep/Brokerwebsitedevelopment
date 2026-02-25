@@ -23,11 +23,11 @@ export function RealTradeArea({ accessToken, wallet, onWalletUpdate, userProfile
     fetchActiveTrades();
     fetchClosedTrades();
     
-    // Poll active trades every 2 seconds
+    // ✅ REDUCED: Poll active trades every 15 seconds (was 2s - too aggressive!)
     const interval = setInterval(() => {
       fetchActiveTrades();
       checkExpiredTrades();
-    }, 2000);
+    }, 15000); // ✅ Changed from 2000ms to 15000ms
 
     return () => clearInterval(interval);
   }, []);

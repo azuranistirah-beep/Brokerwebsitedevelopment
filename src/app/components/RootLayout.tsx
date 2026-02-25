@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router';
 import { PublicHeader } from './PublicHeader';
 import { PublicFooter } from './PublicFooter';
 import { PriceProvider } from '../context/PriceContext';
+import { DeploymentAlert } from './DeploymentAlert';
 import { useState, useEffect } from 'react';
 import type { AppContextType } from '../hooks/useAppContext';
 
@@ -90,6 +91,7 @@ export function RootLayout() {
         </main>
         
         {!hideHeaderFooter && <PublicFooter />}
+        <DeploymentAlert />
       </div>
     </PriceProvider>
   );
