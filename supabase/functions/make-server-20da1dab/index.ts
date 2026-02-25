@@ -95,37 +95,37 @@ const COINGECKO_MAP: Record<string, string> = {
 };
 
 // Try fetching from Binance with multiple endpoints
-async function fetchFromBinance(endpoints: string[], timeout = 10000): Promise<any> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+async function fetchFromBinance(endpoints: string[], timeout = 5000): Promise<any> {
   for (const endpoint of endpoints) {
     try {
       console.log(`🔄 [Binance] Trying: ${endpoint}`);
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+
       const response = await fetch(endpoint, {
+        signal: controller.signal,
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-        signal: controller.signal,
+        }
       });
 
+      clearTimeout(timeoutId);
+
       if (response.ok) {
-        clearTimeout(timeoutId);
         const data = await response.json();
         console.log(`✅ [Binance] Success from ${endpoint} (${data.length} tickers)`);
         return { success: true, data, source: 'binance' };
       }
 
       console.log(`⚠️ [Binance] ${endpoint} returned ${response.status}`);
-    } catch (error) {
-      console.log(`⚠️ [Binance] ${endpoint} failed:`, error.message);
+    } catch (error: any) {
+      console.log(`⚠️ [Binance] ${endpoint} failed: ${error.message}`);
       continue;
     }
   }
 
-  clearTimeout(timeoutId);
   return { success: false };
 }
 
@@ -198,6 +198,29 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // ✅ GET /health - Health check endpoint
+    if (path === '/make-server-20da1dab/health' && req.method === 'GET') {
+      console.log('✅ [Health Check] Backend is operational');
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          service: 'Investoft Backend (make-server-20da1dab)',
+          version: '20.2.0-BROKEN-PIPE-FIX',
+          timestamp: new Date().toISOString(),
+          status: 'operational',
+          endpoints: {
+            health: 'GET /make-server-20da1dab/health',
+            binance: 'GET /make-server-20da1dab/binance/ticker/24hr',
+            trades: 'POST /make-server-20da1dab/trades',
+            user: 'GET /make-server-20da1dab/user/:id',
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
     // ✅ GET /binance/ticker/24hr - Fetch ALL crypto prices (ANTI 451!)
     if (path === '/make-server-20da1dab/binance/ticker/24hr' && req.method === 'GET') {

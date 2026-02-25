@@ -13,7 +13,7 @@ export function DeploymentAlert() {
   const checkBackend = async () => {
     try {
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/`,
+        `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/health`,
         {
           headers: {
             Authorization: `Bearer ${publicAnonKey}`,
@@ -22,13 +22,17 @@ export function DeploymentAlert() {
       );
 
       if (response.ok) {
+        const data = await response.json();
+        console.log('✅ [DeploymentAlert] Backend status:', data);
         setBackendStatus("ok");
         setShowAlert(false);
       } else {
+        console.error('❌ [DeploymentAlert] Backend check failed:', response.status);
         setBackendStatus("error");
         setShowAlert(true);
       }
     } catch (error) {
+      console.error('❌ [DeploymentAlert] Backend unreachable:', error);
       setBackendStatus("error");
       setShowAlert(true);
     }
