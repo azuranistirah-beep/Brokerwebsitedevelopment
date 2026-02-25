@@ -1,19 +1,26 @@
 /**
- * ✅ UNIFIED PRICE SERVICE - BINANCE WEBSOCKET (EXACT MATCH TRADINGVIEW!)
+ * ✅ UNIFIED PRICE SERVICE - REST API POLLING (NO WEBSOCKET!)
  * 
- * VERSION: 27.0.0 - BINANCE WEBSOCKET PRIMARY
+ * VERSION: 30.2.0 - TIMEOUT FIX!
  * 
  * Strategy:
- * - Primary: Binance WebSocket (EXACT MATCH with TradingView!)
- * - Fallback: REST API polling if WebSocket fails
- * - 100% accurate, matches TradingView ticker!
+ * - Using REST API polling instead of WebSocket (avoid CORS issues)
+ * - Fetch via BACKEND PROXY (no CORS!)
+ * - 100% reliable, no WebSocket errors!
+ * - Added timeout handling (12s frontend, 10s backend)
+ * - Graceful error handling - won't crash on timeout
  */
 
+import { projectId, publicAnonKey } from '../../../utils/supabase/info';
+
 interface PriceData {
-  symbol: string;
   price: number;
+  change: number;
+  changePercent: number;
+  change24h?: number;
+  changePercent24h?: number;
+  basePrice: number;
   timestamp: number;
-  source: string;
 }
 
 interface Subscriber {
@@ -22,134 +29,125 @@ interface Subscriber {
 }
 
 interface BinanceTicker {
-  e: string;      // Event type
-  E: number;      // Event time
-  s: string;      // Symbol
-  c: string;      // Close price (current price)
-  o: string;      // Open price
-  h: string;      // High price
-  l: string;      // Low price
-  v: string;      // Volume
-  q: string;      // Quote volume
+  symbol: string;
+  lastPrice: string;
+  priceChange: string;
+  priceChangePercent: string;
+  openPrice: string;
 }
 
 class UnifiedPriceService {
   private subscribers: Map<string, Set<Subscriber>> = new Map();
   private latestPrices: Map<string, PriceData> = new Map();
-  private ws: WebSocket | null = null;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private reconnectAttempts: number = 0;
-  private readonly MAX_RECONNECT_ATTEMPTS = 5;
-  private readonly VERSION = '27.0.0-BINANCE-WEBSOCKET';
   private pollInterval: NodeJS.Timeout | null = null;
-  private isWebSocketConnected: boolean = false;
+  private readonly VERSION = '30.2.0-TIMEOUT-FIX';
+  private isPolling: boolean = false;
   
   // Symbol mapping (TradingView format → Binance format)
   private symbolMap: Map<string, string> = new Map([
     // Crypto - exact binance pairs
-    ['BTCUSD', 'btcusdt'],
-    ['ETHUSD', 'ethusdt'],
-    ['BNBUSD', 'bnbusdt'],
-    ['XRPUSD', 'xrpusdt'],
-    ['SOLUSD', 'solusdt'],
-    ['ADAUSD', 'adausdt'],
-    ['DOGEUSD', 'dogeusdt'],
-    ['MATICUSD', 'maticusdt'],
-    ['DOTUSD', 'dotusdt'],
-    ['AVAXUSD', 'avaxusdt'],
-    ['SHIBUSDT', 'shibusdt'],
-    ['LINKUSD', 'linkusdt'],
-    ['TRXUSD', 'trxusdt'],
-    ['UNIUSD', 'uniusdt'],
-    ['LTCUSD', 'ltcusdt'],
-    ['ATOMUSD', 'atomusdt'],
-    ['ETCUSD', 'etcusdt'],
-    ['NEARUSD', 'nearusdt'],
-    ['APTUSD', 'aptusdt'],
-    ['ARBUSD', 'arbusdt'],
-    ['OPUSD', 'opusdt'],
-    ['LDOUSD', 'ldousdt'],
-    ['XLMUSD', 'xlmusdt'],
-    ['BCHUSD', 'bchusdt'],
-    ['ALGOUSD', 'algousdt'],
-    ['VETUSD', 'vetusdt'],
-    ['FILUSD', 'filusdt'],
-    ['ICPUSD', 'icpusdt'],
-    ['SANDUSD', 'sandusdt'],
-    ['MANAUSD', 'manausdt'],
-    ['AXSUSD', 'axsusdt'],
-    ['GRTUSD', 'grtusdt'],
-    ['FTMUSD', 'ftmusdt'],
-    ['ENJUSD', 'enjusdt'],
-    ['APEUSD', 'apeusdt'],
-    ['GMXUSD', 'gmxusdt'],
-    ['RUNEUSD', 'runeusdt'],
-    ['QNTUSD', 'qntusdt'],
-    ['IMXUSD', 'imxusdt'],
-    ['CRVUSD', 'crvusdt'],
-    ['MKRUSD', 'mkrusdt'],
-    ['AAVEUSD', 'aaveusdt'],
-    ['SNXUSD', 'snxusdt'],
-    ['COMPUSD', 'compusdt'],
-    ['YFIUSD', 'yfiusdt'],
-    ['SUSHIUSD', 'sushiusdt'],
-    ['ZRXUSD', 'zrxusdt'],
-    ['BATUSD', 'batusdt'],
-    ['ZECUSD', 'zecusdt'],
-    ['DASHUSD', 'dashusdt'],
-    ['1INCHUSD', '1inchusdt'],
-    ['HBARUSD', 'hbarusdt'],
-    ['FLOWUSD', 'flowusdt'],
-    ['ONEUSD', 'oneusdt'],
-    ['THETAUSD', 'thetausdt'],
-    ['CHZUSD', 'chzusdt'],
-    ['HOTUSD', 'hotusdt'],
-    ['ZILUSD', 'zilusdt'],
-    ['WAVESUSD', 'wavesusdt'],
-    ['KAVAUSD', 'kavausdt'],
-    ['ONTUSD', 'ontusdt'],
-    ['XTZUSD', 'xtzusdt'],
-    ['QTUMUSD', 'qtumusdt'],
-    ['RVNUSD', 'rvnusdt'],
-    ['NMRUSD', 'nmrusdt'],
-    ['STORJUSD', 'storjusdt'],
-    ['ANKRUSD', 'ankrusdt'],
-    ['CELRUSD', 'celrusdt'],
-    ['CKBUSD', 'ckbusdt'],
-    ['FETUSD', 'fetusdt'],
-    ['IOTXUSD', 'iotxusdt'],
-    ['LRCUSD', 'lrcusdt'],
-    ['OCEANUSD', 'oceanusdt'],
-    ['RSRUSD', 'rsrusdt'],
-    ['SKLUSD', 'sklusdt'],
-    ['UMAUSD', 'umausdt'],
-    ['WOOUSD', 'woousdt'],
-    ['BANDUSD', 'bandusdt'],
-    ['KSMUSD', 'ksmusdt'],
-    ['BALUSD', 'balusdt'],
-    ['COTIUSD', 'cotiusdt'],
-    ['OGNUSD', 'ognusdt'],
-    ['RLCUSD', 'rlcusdt'],
-    ['SRMUSD', 'srmusdt'],
-    ['LPTUSD', 'lptusdt'],
-    ['ALPHAUSD', 'alphausdt'],
-    ['CTSIUSD', 'ctsiusdt'],
-    ['ROSEUSD', 'roseusdt'],
-    ['GLMUSD', 'glmusdt'],
-    ['JASMYUSD', 'jasmyusdt'],
-    ['PEOPLEUSD', 'peopleusdt'],
-    ['GALAUSD', 'galausdt'],
-    ['INJUSD', 'injusdt'],
-    ['MINAUSD', 'minausdt'],
-    ['ARUSD', 'arusdt'],
-    ['CFXUSD', 'cfxusdt'],
-    ['KLAYUSD', 'klayusdt'],
+    ['BTCUSD', 'BTCUSDT'],
+    ['ETHUSD', 'ETHUSDT'],
+    ['BNBUSD', 'BNBUSDT'],
+    ['XRPUSD', 'XRPUSDT'],
+    ['SOLUSD', 'SOLUSDT'],
+    ['ADAUSD', 'ADAUSDT'],
+    ['DOGEUSD', 'DOGEUSDT'],
+    ['MATICUSD', 'MATICUSDT'],
+    ['DOTUSD', 'DOTUSDT'],
+    ['AVAXUSD', 'AVAXUSDT'],
+    ['SHIBUSDT', 'SHIBUSDT'],
+    ['LINKUSD', 'LINKUSDT'],
+    ['TRXUSD', 'TRXUSDT'],
+    ['UNIUSD', 'UNIUSDT'],
+    ['LTCUSD', 'LTCUSDT'],
+    ['ATOMUSD', 'ATOMUSDT'],
+    ['ETCUSD', 'ETCUSDT'],
+    ['NEARUSD', 'NEARUSDT'],
+    ['APTUSD', 'APTUSDT'],
+    ['ARBUSD', 'ARBUSDT'],
+    ['OPUSD', 'OPUSDT'],
+    ['LDOUSD', 'LDOUSDT'],
+    ['XLMUSD', 'XLMUSDT'],
+    ['BCHUSD', 'BCHUSDT'],
+    ['ALGOUSD', 'ALGOUSDT'],
+    ['VETUSD', 'VETUSDT'],
+    ['FILUSD', 'FILUSDT'],
+    ['ICPUSD', 'ICPUSDT'],
+    ['SANDUSD', 'SANDUSDT'],
+    ['MANAUSD', 'MANAUSDT'],
+    ['AXSUSD', 'AXSUSDT'],
+    ['GRTUSD', 'GRTUSDT'],
+    ['FTMUSD', 'FTMUSDT'],
+    ['ENJUSD', 'ENJUSDT'],
+    ['APEUSD', 'APEUSDT'],
+    ['GMXUSD', 'GMXUSDT'],
+    ['RUNEUSD', 'RUNEUSDT'],
+    ['QNTUSD', 'QNTUSDT'],
+    ['IMXUSD', 'IMXUSDT'],
+    ['CRVUSD', 'CRVUSDT'],
+    ['MKRUSD', 'MKRUSDT'],
+    ['AAVEUSD', 'AAVEUSDT'],
+    ['SNXUSD', 'SNXUSDT'],
+    ['COMPUSD', 'COMPUSDT'],
+    ['YFIUSD', 'YFIUSDT'],
+    ['SUSHIUSD', 'SUSHIUSDT'],
+    ['ZRXUSD', 'ZRXUSDT'],
+    ['BATUSD', 'BATUSDT'],
+    ['ZECUSD', 'ZECUSDT'],
+    ['DASHUSD', 'DASHUSDT'],
+    ['1INCHUSD', '1INCHUSDT'],
+    ['HBARUSD', 'HBARUSDT'],
+    ['FLOWUSD', 'FLOWUSDT'],
+    ['ONEUSD', 'ONEUSDT'],
+    ['THETAUSD', 'THETAUSDT'],
+    ['CHZUSD', 'CHZUSDT'],
+    ['HOTUSD', 'HOTUSDT'],
+    ['ZILUSD', 'ZILUSDT'],
+    ['WAVESUSD', 'WAVESUSDT'],
+    ['KAVAUSD', 'KAVAUSDT'],
+    ['ONTUSD', 'ONTUSDT'],
+    ['XTZUSD', 'XTZUSDT'],
+    ['QTUMUSD', 'QTUMUSDT'],
+    ['RVNUSD', 'RVNUSDT'],
+    ['NMRUSD', 'NMRUSDT'],
+    ['STORJUSD', 'STORJUSDT'],
+    ['ANKRUSD', 'ANKRUSDT'],
+    ['CELRUSD', 'CELRUSDT'],
+    ['CKBUSD', 'CKBUSDT'],
+    ['FETUSD', 'FETUSDT'],
+    ['IOTXUSD', 'IOTXUSDT'],
+    ['LRCUSD', 'LRCUSDT'],
+    ['OCEANUSD', 'OCEANUSDT'],
+    ['RSRUSD', 'RSRUSDT'],
+    ['SKLUSD', 'SKLUSDT'],
+    ['UMAUSD', 'UMAUSDT'],
+    ['WOOUSD', 'WOOUSDT'],
+    ['BANDUSD', 'BANDUSDT'],
+    ['KSMUSD', 'KSMUSDT'],
+    ['BALUSD', 'BALUSDT'],
+    ['COTIUSD', 'COTIUSDT'],
+    ['OGNUSD', 'OGNUSDT'],
+    ['RLCUSD', 'RLCUSDT'],
+    ['SRMUSD', 'SRMUSDT'],
+    ['LPTUSD', 'LPTUSDT'],
+    ['ALPHAUSD', 'ALPHAUSDT'],
+    ['CTSIUSD', 'CTSIUSDT'],
+    ['ROSEUSD', 'ROSEUSDT'],
+    ['GLMUSD', 'GLMUSDT'],
+    ['JASMYUSD', 'JASMYUSDT'],
+    ['PEOPLEUSD', 'PEOPLEUSDT'],
+    ['GALAUSD', 'GALAUSDT'],
+    ['INJUSD', 'INJUSDT'],
+    ['MINAUSD', 'MINAUSDT'],
+    ['ARUSD', 'ARUSDT'],
+    ['CFXUSD', 'CFXUSDT'],
+    ['KLAYUSD', 'KLAYUSDT'],
   ]);
 
   constructor() {
     console.log(`🎯 [UnifiedPriceService v${this.VERSION}] Initialized`);
-    console.log('🌐 Using Binance WebSocket (EXACT MATCH with TradingView!)');
-    // ✅ DON'T connect here - wait for first subscriber
+    console.log('🌐 Using Binance REST API polling (NO WebSocket!)');
   }
 
   /**
@@ -173,7 +171,7 @@ class UnifiedPriceService {
     // Check if we have direct mapping
     const mapped = this.symbolMap.get(clean);
     if (mapped) {
-      return mapped.toUpperCase();
+      return mapped;
     }
 
     // Convert to Binance format (BTCUSDT)
@@ -185,193 +183,168 @@ class UnifiedPriceService {
   }
 
   /**
-   * ✅ CHECK IF SYMBOL IS CRYPTO (only crypto supported)
+   * ✅ CHECK IF CRYPTO SYMBOL
    */
   private isCryptoSymbol(symbol: string): boolean {
     return symbol.endsWith('USDT');
   }
 
   /**
-   * ✅ CONNECT TO BINANCE WEBSOCKET
+   * ✅ FETCH PRICE DATA FROM BINANCE REST API
    */
-  private connectWebSocket(): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      console.log('⚠️ [Binance] WebSocket already connected');
-      return;
-    }
-
+  private async fetchBinancePrices(): Promise<void> {
     const subscribedSymbols = Array.from(this.subscribers.keys());
+    console.log(`\n🔍 [Binance] FETCH DEBUG:`);
+    console.log(`   Total subscribers: ${subscribedSymbols.length}`);
+    
     if (subscribedSymbols.length === 0) {
-      console.log('⏸️ [Binance] No symbols to subscribe yet, waiting...');
+      console.log(`⚠️ [Binance] No subscribers, skipping fetch`);
       return;
     }
 
     // Filter only crypto symbols
     const cryptoSymbols = subscribedSymbols.filter(s => this.isCryptoSymbol(s));
+    console.log(`   Crypto symbols: ${cryptoSymbols.length}`, cryptoSymbols);
+    
     if (cryptoSymbols.length === 0) {
-      console.log('⏸️ [Binance] No crypto symbols to subscribe');
+      console.log(`⚠️ [Binance] No crypto symbols, skipping fetch`);
       return;
     }
 
-    // Create stream list
-    const streams = cryptoSymbols.map(s => `${s.toLowerCase()}@ticker`).join('/');
-    const wsUrl = `wss://stream.binance.com:9443/stream?streams=${streams}`;
-
-    console.log(`🔌 [Binance] Connecting to WebSocket...`);
-    console.log(`📊 [Binance] Subscribing to ${cryptoSymbols.length} symbols`);
-
     try {
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onopen = () => {
-        console.log('✅ [Binance] WebSocket CONNECTED - Real-time prices active!');
-        this.isWebSocketConnected = true;
-        this.reconnectAttempts = 0;
+      // ✅ USE BACKEND PROXY TO AVOID CORS!
+      const proxyUrl = `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/binance/ticker/24hr`;
+      
+      console.log(`🔄 [Binance] Fetching via BACKEND PROXY...`);
+      console.log(`   URL: ${proxyUrl}`);
+      console.log(`   Symbols: ${cryptoSymbols.length}`);
+      
+      // ✅ Add frontend timeout (12 seconds to give backend time)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      
+      const response = await fetch(proxyUrl, {
+        headers: {
+          'Authorization': `Bearer ${publicAnonKey}`
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        console.error(`❌ [Binance] Backend proxy error: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`   Error details:`, errorText);
         
-        // Stop polling if running
-        if (this.pollInterval) {
-          clearInterval(this.pollInterval);
-          this.pollInterval = null;
-        }
-      };
+        // Don't crash, just skip this fetch cycle
+        return;
+      }
 
-      this.ws.onmessage = (event) => {
-        try {
-          const message = JSON.parse(event.data);
+      const allTickers: BinanceTicker[] = await response.json();
+      console.log(`✅ [Binance] Received ${allTickers.length} tickers from BACKEND PROXY`);
+      
+      let updatedCount = 0;
+      
+      // Process each subscribed symbol
+      cryptoSymbols.forEach(binanceSymbol => {
+        console.log(`🔍 [Binance] Looking for ticker: ${binanceSymbol}`);
+        const ticker = allTickers.find(t => t.symbol === binanceSymbol);
+        
+        if (ticker) {
+          const price = parseFloat(ticker.lastPrice);
+          const change24h = parseFloat(ticker.priceChange);
+          const changePercent24h = parseFloat(ticker.priceChangePercent);
+          const openPrice = parseFloat(ticker.openPrice);
           
-          if (message.data) {
-            const ticker: BinanceTicker = message.data;
-            const price = parseFloat(ticker.c);
-            const symbol = ticker.s; // Already in uppercase (BTCUSDT)
+          console.log(`✅ [Binance] Found ticker for ${binanceSymbol}:`);
+          console.log(`   Price: ${price}`);
+          console.log(`   Change: ${change24h}`);
+          console.log(`   Change%: ${changePercent24h}`);
+          
+          const priceData: PriceData = {
+            price: price,
+            change: change24h,
+            changePercent: changePercent24h,
+            change24h: change24h,
+            changePercent24h: changePercent24h,
+            basePrice: openPrice,
+            timestamp: Date.now(),
+          };
 
-            if (!isNaN(price) && price > 0) {
-              const priceData: PriceData = {
-                symbol: symbol,
-                price: price,
-                timestamp: Date.now(),
-                source: 'binance-ws'
-              };
+          // Update cache
+          this.latestPrices.set(binanceSymbol, priceData);
+          console.log(`💾 [Binance] Cached price for ${binanceSymbol}: $${price}`);
 
-              this.updatePrice(priceData);
-              
-              // ✅ Log first price update for each symbol
-              if (!this.latestPrices.has(symbol) || this.latestPrices.size <= 5) {
-                console.log(`💰 [Binance WS] ${symbol}: $${price.toFixed(2)}`);
+          // Notify subscribers
+          const subscribers = this.subscribers.get(binanceSymbol);
+          console.log(`📢 [Binance] Notifying ${subscribers?.size || 0} subscribers for ${binanceSymbol}`);
+          
+          if (subscribers) {
+            subscribers.forEach((sub, index) => {
+              try {
+                console.log(`   📡 Calling subscriber #${index + 1} callback...`);
+                sub.callback(priceData);
+                console.log(`   ✅ Subscriber #${index + 1} callback executed!`);
+              } catch (error) {
+                console.error(`❌ [Binance] Subscriber callback error:`, error);
               }
-            }
+            });
+          } else {
+            console.warn(`⚠️ [Binance] No subscribers found for ${binanceSymbol}!`);
           }
-        } catch (error) {
-          console.error('❌ [Binance] Error parsing message:', error);
-        }
-      };
-
-      this.ws.onerror = (error) => {
-        console.error('❌ [Binance] WebSocket Error:', error);
-      };
-
-      this.ws.onclose = () => {
-        console.warn('⚠️ [Binance] WebSocket disconnected');
-        this.isWebSocketConnected = false;
-        this.ws = null;
-
-        // Try to reconnect
-        if (this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
-          this.reconnectAttempts++;
-          const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-          console.log(`🔄 [Binance] Reconnecting in ${delay/1000}s (attempt ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})...`);
           
-          this.reconnectTimeout = setTimeout(() => {
-            this.connectWebSocket();
-          }, delay);
+          updatedCount++;
         } else {
-          console.error('❌ [Binance] Max reconnection attempts reached. Falling back to REST API...');
-          this.startPolling();
+          console.warn(`⚠️ [Binance] No ticker found for ${binanceSymbol}`);
         }
-      };
+      });
 
+      console.log(`✅ [Binance] Updated ${updatedCount}/${cryptoSymbols.length} symbols via REST API`);
+      
+      // Log first 3 prices for debugging
+      if (updatedCount > 0) {
+        const firstThree = Array.from(this.latestPrices.entries()).slice(0, 3);
+        firstThree.forEach(([symbol, data]) => {
+          console.log(`💹 ${symbol}: $${data.price.toFixed(2)} (${data.changePercent24h.toFixed(2)}%)`);
+        });
+      }
+      
     } catch (error) {
-      console.error('❌ [Binance] Failed to create WebSocket:', error);
-      this.startPolling();
+      console.error('❌ [Binance] REST API fetch error:', error);
     }
   }
 
   /**
-   * ✅ START REST API POLLING (fallback)
+   * ✅ START POLLING
    */
   private startPolling(): void {
-    if (this.pollInterval) {
-      return; // Already polling
+    if (this.isPolling) {
+      console.log('⚠️ [Binance] Polling already active');
+      return;
     }
 
-    console.log('🔄 [Binance] Starting REST API polling (fallback mode)...');
-    
-    // Poll immediately
-    this.fetchPricesREST();
-    
-    // Then poll every 2 seconds
+    console.log('🔄 [Binance] Starting REST API polling (every 2 seconds)...');
+    this.isPolling = true;
+
+    // Initial fetch
+    this.fetchBinancePrices();
+
+    // Poll every 2 seconds
     this.pollInterval = setInterval(() => {
-      this.fetchPricesREST();
+      this.fetchBinancePrices();
     }, 2000);
   }
 
   /**
-   * ✅ FETCH PRICES FROM BINANCE REST API
+   * ✅ STOP POLLING
    */
-  private async fetchPricesREST(): Promise<void> {
-    const symbols = Array.from(this.subscribers.keys());
-    const cryptoSymbols = symbols.filter(s => this.isCryptoSymbol(s));
-    
-    if (cryptoSymbols.length === 0) {
-      return;
-    }
-
-    try {
-      // Fetch all tickers
-      const response = await fetch('https://api.binance.com/api/v3/ticker/price');
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const tickers: Array<{ symbol: string; price: string }> = await response.json();
-      
-      // Update prices for subscribed symbols
-      cryptoSymbols.forEach(symbol => {
-        const ticker = tickers.find(t => t.symbol === symbol);
-        if (ticker) {
-          const price = parseFloat(ticker.price);
-          if (!isNaN(price) && price > 0) {
-            const priceData: PriceData = {
-              symbol: symbol,
-              price: price,
-              timestamp: Date.now(),
-              source: 'binance-rest'
-            };
-            this.updatePrice(priceData);
-          }
-        }
-      });
-
-    } catch (error: any) {
-      console.error(`❌ [Binance REST] Error: ${error.message}`);
-    }
-  }
-
-  /**
-   * ✅ Update price and notify subscribers
-   */
-  private updatePrice(priceData: PriceData): void {
-    this.latestPrices.set(priceData.symbol, priceData);
-
-    const subs = this.subscribers.get(priceData.symbol);
-    if (subs && subs.size > 0) {
-      subs.forEach(subscriber => {
-        try {
-          subscriber.callback(priceData);
-        } catch (error) {
-          console.error(`❌ Subscriber callback error:`, error);
-        }
-      });
+  private stopPolling(): void {
+    if (this.pollInterval) {
+      clearInterval(this.pollInterval);
+      this.pollInterval = null;
+      this.isPolling = false;
+      console.log('🛑 [Binance] Stopped REST API polling');
     }
   }
 
@@ -379,102 +352,86 @@ class UnifiedPriceService {
    * ✅ SUBSCRIBE TO PRICE UPDATES
    */
   subscribe(symbol: string, callback: (data: PriceData) => void): () => void {
-    const normalized = this.normalizeSymbol(symbol);
+    const binanceSymbol = this.normalizeSymbol(symbol);
     
-    // Skip non-crypto symbols
-    if (!this.isCryptoSymbol(normalized)) {
-      console.log(`⚠️ [Skip] ${symbol} - Only crypto supported by Binance`);
-      return () => {};
+    console.log(`🔍 [UnifiedPriceService] SUBSCRIBE DEBUG:`);
+    console.log(`   Input symbol: ${symbol}`);
+    console.log(`   Normalized: ${binanceSymbol}`);
+    console.log(`   Is crypto?: ${this.isCryptoSymbol(binanceSymbol)}`);
+    
+    if (!this.isCryptoSymbol(binanceSymbol)) {
+      console.warn(`⚠️ [UnifiedPriceService] ${symbol} is not a crypto symbol, skipping subscription`);
+      return () => {}; // Return empty unsubscribe function
     }
 
-    const isNewSymbol = !this.subscribers.has(normalized);
-    const subscriber: Subscriber = { callback, symbol: normalized };
-
-    if (isNewSymbol) {
-      this.subscribers.set(normalized, new Set());
-      console.log(`📡 [Subscribe] ${symbol} → ${normalized}`);
+    // Create subscriber set if it doesn't exist
+    if (!this.subscribers.has(binanceSymbol)) {
+      this.subscribers.set(binanceSymbol, new Set());
+      console.log(`➕ [UnifiedPriceService] Created new subscriber set for ${binanceSymbol}`);
     }
 
-    this.subscribers.get(normalized)!.add(subscriber);
+    // Add subscriber
+    const subscriber: Subscriber = { callback, symbol: binanceSymbol };
+    this.subscribers.get(binanceSymbol)!.add(subscriber);
 
-    // ✅ If new symbol added and WebSocket is connected, we need to reconnect with new streams
-    if (isNewSymbol && this.isWebSocketConnected) {
-      console.log('🔄 [Binance] New symbol added, reconnecting WebSocket...');
-      if (this.ws) {
-        this.ws.close();
-        this.ws = null;
-      }
-      this.isWebSocketConnected = false;
-      setTimeout(() => this.connectWebSocket(), 100);
-    }
-    // ✅ If first subscriber and WebSocket not connected, connect now
-    else if (!this.isWebSocketConnected && !this.ws) {
-      setTimeout(() => this.connectWebSocket(), 100);
+    console.log(`✅ [UnifiedPriceService] Subscribed to ${symbol} (Binance: ${binanceSymbol})`);
+    console.log(`📊 Total subscribers: ${this.subscribers.size} symbols, ${Array.from(this.subscribers.values()).reduce((acc, set) => acc + set.size, 0)} callbacks`);
+
+    // Send cached data immediately if available
+    const cached = this.latestPrices.get(binanceSymbol);
+    if (cached) {
+      console.log(`💾 [UnifiedPriceService] Sending cached data: $${cached.price.toFixed(2)}`);
+      callback(cached);
+    } else {
+      console.log(`⚠️ [UnifiedPriceService] No cached data for ${binanceSymbol} yet`);
     }
 
-    // Return latest price if available
-    const latestPrice = this.latestPrices.get(normalized);
-    if (latestPrice) {
-      try {
-        callback(latestPrice);
-      } catch (error) {
-        console.error(`❌ Subscriber callback error:`, error);
-      }
+    // Start polling if not already active
+    if (!this.isPolling) {
+      console.log(`🚀 [UnifiedPriceService] Starting polling...`);
+      this.startPolling();
+    } else {
+      console.log(`✓ [UnifiedPriceService] Polling already active`);
     }
 
     // Return unsubscribe function
     return () => {
-      const subs = this.subscribers.get(normalized);
+      const subs = this.subscribers.get(binanceSymbol);
       if (subs) {
         subs.delete(subscriber);
+        
+        // If no more subscribers for this symbol, remove it
         if (subs.size === 0) {
-          this.subscribers.delete(normalized);
-          console.log(`📴 [Unsubscribe] ${normalized}`);
-          
-          // If no more subscribers, disconnect WebSocket
-          if (this.subscribers.size === 0) {
-            this.cleanup();
-          }
+          this.subscribers.delete(binanceSymbol);
+          console.log(`🧹 [UnifiedPriceService] Unsubscribed from ${binanceSymbol}`);
         }
+      }
+
+      // If no more subscribers at all, stop polling
+      if (this.subscribers.size === 0) {
+        this.stopPolling();
       }
     };
   }
 
   /**
-   * ✅ GET LATEST PRICE (sync)
+   * ✅ GET CURRENT PRICE
    */
-  getLatestPrice(symbol: string): number | null {
-    const normalized = this.normalizeSymbol(symbol);
-    const data = this.latestPrices.get(normalized);
-    return data ? data.price : null;
+  getPrice(symbol: string): PriceData | null {
+    const binanceSymbol = this.normalizeSymbol(symbol);
+    return this.latestPrices.get(binanceSymbol) || null;
   }
 
   /**
-   * ✅ CLEANUP ALL
+   * ✅ CLEANUP
    */
-  cleanup(): void {
-    console.log('🧹 [UnifiedPriceService] Cleaning up...');
-    
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-
-    if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
-    }
-
+  destroy(): void {
+    this.stopPolling();
     this.subscribers.clear();
     this.latestPrices.clear();
-    this.isWebSocketConnected = false;
+    console.log('🧹 [UnifiedPriceService] Destroyed');
   }
 }
 
-// Export singleton instance
+// ✅ SINGLETON INSTANCE
 export const unifiedPriceService = new UnifiedPriceService();

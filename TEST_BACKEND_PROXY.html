@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Binance Backend Proxy</title>
+  <style>
+    body {
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    h1 {
+      color: #22c55e;
+    }
+    button {
+      background: #22c55e;
+      color: #0f172a;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #16a34a;
+    }
+    #output {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      max-height: 600px;
+      overflow-y: auto;
+    }
+    .success { color: #22c55e; }
+    .error { color: #ef4444; }
+    .warning { color: #f59e0b; }
+    .info { color: #3b82f6; }
+  </style>
+</head>
+<body>
+  <h1>🔧 Binance Backend Proxy Test Tool</h1>
+  <p>Test if the backend proxy is working correctly.</p>
+  
+  <div>
+    <button onclick="testHealth()">Test Health Check</button>
+    <button onclick="testBinanceProxy()">Test Binance Proxy (All Tickers)</button>
+    <button onclick="testSingleTicker()">Test Single Ticker (BTCUSDT)</button>
+    <button onclick="clearOutput()">Clear Output</button>
+  </div>
+  
+  <div id="output"></div>
+
+  <script>
+    const projectId = 'ourtzdfyqpytfojlquff';
+    const publicAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im91cnR6ZGZ5cXB5dGZvamxxdWZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyOTg4MTgsImV4cCI6MjA4NTg3NDgxOH0.EaDjaOpvcfb_l0Va5Gdkfhw1Hi4w5kWl6ByKzheSK2w';
+    const baseUrl = `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab`;
+    const output = document.getElementById('output');
+
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type;
+      output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function clearOutput() {
+      output.innerHTML = '';
+    }
+
+    async function testHealth() {
+      log('🔄 Testing health check endpoint...', 'info');
+      
+      try {
+        const response = await fetch(`${baseUrl}/health`);
+        const data = await response.json();
+        
+        if (response.ok) {
+          log('✅ Health check successful!', 'success');
+          log(`   Service: ${data.service}`, 'success');
+          log(`   Version: ${data.version}`, 'success');
+          log(`   Status: ${data.status}`, 'success');
+        } else {
+          log(`❌ Health check failed: ${response.status}`, 'error');
+        }
+      } catch (error) {
+        log(`❌ Health check error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testBinanceProxy() {
+      log('🔄 Testing Binance proxy (all tickers)...', 'info');
+      log('⏳ This may take a few seconds...', 'warning');
+      
+      const startTime = performance.now();
+      
+      try {
+        const response = await fetch(`${baseUrl}/binance/ticker/24hr`, {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`
+          }
+        });
+        
+        if (!response.ok) {
+          log(`❌ Binance proxy failed: ${response.status}`, 'error');
+          const errorText = await response.text();
+          log(`   Error: ${errorText}`, 'error');
+          return;
+        }
+        
+        const data = await response.json();
+        const endTime = performance.now();
+        const duration = ((endTime - startTime) / 1000).toFixed(2);
+        
+        log('✅ Binance proxy successful!', 'success');
+        log(`   Received ${data.length} tickers`, 'success');
+        log(`   Duration: ${duration}s`, 'success');
+        log('', 'info');
+        
+        // Find some popular tickers
+        const btc = data.find(t => t.symbol === 'BTCUSDT');
+        const eth = data.find(t => t.symbol === 'ETHUSDT');
+        const bnb = data.find(t => t.symbol === 'BNBUSDT');
+        
+        if (btc) {
+          log(`💰 BTCUSDT: $${parseFloat(btc.lastPrice).toFixed(2)}`, 'success');
+        }
+        if (eth) {
+          log(`💰 ETHUSDT: $${parseFloat(eth.lastPrice).toFixed(2)}`, 'success');
+        }
+        if (bnb) {
+          log(`💰 BNBUSDT: $${parseFloat(bnb.lastPrice).toFixed(2)}`, 'success');
+        }
+        
+      } catch (error) {
+        log(`❌ Binance proxy error: ${error.message}`, 'error');
+      }
+    }
+
+    async function testSingleTicker() {
+      log('🔄 Testing single ticker (BTCUSDT)...', 'info');
+      
+      try {
+        const response = await fetch(`${baseUrl}/binance/ticker/price?symbol=BTCUSDT`, {
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`
+          }
+        });
+        
+        if (!response.ok) {
+          log(`❌ Single ticker failed: ${response.status}`, 'error');
+          const errorText = await response.text();
+          log(`   Error: ${errorText}`, 'error');
+          return;
+        }
+        
+        const data = await response.json();
+        
+        log('✅ Single ticker successful!', 'success');
+        log(`   Symbol: ${data.symbol}`, 'success');
+        log(`   Price: $${parseFloat(data.price).toFixed(2)}`, 'success');
+        
+      } catch (error) {
+        log(`❌ Single ticker error: ${error.message}`, 'error');
+      }
+    }
+
+    // Auto-run health check on load
+    log('🚀 Backend Proxy Test Tool Loaded', 'info');
+    log(`📍 Base URL: ${baseUrl}`, 'info');
+    log('', 'info');
+    setTimeout(testHealth, 500);
+  </script>
+</body>
+</html>

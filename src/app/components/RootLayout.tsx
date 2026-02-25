@@ -1,7 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router';
 import { PublicHeader } from './PublicHeader';
 import { PublicFooter } from './PublicFooter';
-import { PriceProvider } from '../context/PriceContext';
 import { DeploymentAlert } from './DeploymentAlert';
 import { useState, useEffect } from 'react';
 import type { AppContextType } from '../hooks/useAppContext';
@@ -74,25 +73,23 @@ export function RootLayout() {
   };
 
   return (
-    <PriceProvider>
-      <div className="min-h-screen bg-slate-950 flex flex-col">
-        {!hideHeaderFooter && (
-          <PublicHeader 
-            onLoginClick={handleLoginClick}
-            onSignupClick={handleSignupClick}
-            isAuthenticated={isAuthenticated}
-            userRole={userRole}
-            onLogout={handleLogout}
-          />
-        )}
-        
-        <main className="flex-1">
-          <Outlet context={contextValue} />
-        </main>
-        
-        {!hideHeaderFooter && <PublicFooter />}
-        <DeploymentAlert />
-      </div>
-    </PriceProvider>
+    <div className="min-h-screen bg-slate-950 flex flex-col">
+      {!hideHeaderFooter && (
+        <PublicHeader 
+          onLoginClick={handleLoginClick}
+          onSignupClick={handleSignupClick}
+          isAuthenticated={isAuthenticated}
+          userRole={userRole}
+          onLogout={handleLogout}
+        />
+      )}
+      
+      <main className="flex-1">
+        <Outlet context={contextValue} />
+      </main>
+      
+      {!hideHeaderFooter && <PublicFooter />}
+      <DeploymentAlert />
+    </div>
   );
 }

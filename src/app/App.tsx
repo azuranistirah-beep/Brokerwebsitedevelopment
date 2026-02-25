@@ -2,11 +2,13 @@ import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { useEffect } from 'react';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PriceProvider } from './context/PriceContext';
+import { CacheClearBanner } from './components/CacheClearBanner';
 
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '26.5.0-DEBUG-PRICES'; // Force new version with debug
+    const version = '38.2.0-TIMEOUT-FIX'; // FIXED: Added timeout handling!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -27,21 +29,24 @@ function App() {
       return; // Don't continue initialization
     }
     
-    console.log('✅ [App] Version 26.5.0 - CoinCap API (NO CORS!)');
-    console.log('🎉 100% working - NO CORS errors guaranteed!');
-    console.log('📊 Using reliable CoinCap API for all price data');
     console.log('');
-    console.log('Expected console output:');
-    console.log('  🎯 [UnifiedPriceService v26.4.0-COINCAP-PRIMARY] Initialized');
-    console.log('  🌐 Using CoinCap API (NO CORS issues!)');
-    console.log('  ✅ [Success] CoinCap API working!');
+    console.log('═══════════════════════════════════════════════');
+    console.log('✅ [App] Version 38.2.0 - TIMEOUT FIX!');
+    console.log('═══════════════════════════════════════════════');
+    console.log('🔧 FIXED: Added timeout handling (10s backend, 12s frontend)');
+    console.log('🔧 Backend: AbortController prevents hanging');
+    console.log('🔧 Frontend: Graceful error handling on timeout');
+    console.log('💡 Binance API connection should be stable now!');
+    console.log('═══════════════════════════════════════════════');
     console.log('');
-    console.log('If you see "Direct Binance" errors, clear cache: Ctrl+Shift+R');
   }, []);
 
   return (
     <ErrorBoundary>
-      <RouterProvider router={router} />
+      <PriceProvider>
+        <RouterProvider router={router} />
+        <CacheClearBanner />
+      </PriceProvider>
     </ErrorBoundary>
   );
 }

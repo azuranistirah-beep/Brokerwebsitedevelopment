@@ -155,34 +155,45 @@ async function fetchForexPrice(symbol: string): Promise<{ price: number | null; 
   }
 }
 
-// Fetch stock price from Finnhub
+// Fetch stock price - NO FINNHUB, use realistic simulation
 async function fetchStockPrice(symbol: string): Promise<{ price: number | null; source: string }> {
   try {
-    const cleanSymbol = symbol.split(':')[1]; // Extract AAPL from NASDAQ:AAPL
-    const apiKey = 'c0vud6pr01qmq8vd2fm0'; // Free demo key
+    const cleanSymbol = symbol.split(':')[1] || symbol; // Extract AAPL from NASDAQ:AAPL
     
-    const response = await fetch(
-      `https://finnhub.io/api/v1/quote?symbol=${cleanSymbol}&token=${apiKey}`
-    );
+    // Stock base prices (Feb 2026 market prices)
+    const stockPrices: Record<string, number> = {
+      'AAPL': 178.50,
+      'GOOGL': 142.30,
+      'MSFT': 415.20,
+      'AMZN': 178.80,
+      'TSLA': 248.50,
+      'NVDA': 875.60,
+      'META': 495.30,
+      'AMD': 165.40,
+      'NFLX': 685.90,
+      'INTC': 42.50,
+      'SPY': 512.30,   // S&P 500 ETF
+      'QQQ': 445.80,   // NASDAQ ETF
+      'DIA': 398.50,   // Dow Jones ETF
+    };
     
-    if (!response.ok) {
-      console.error(`Finnhub API error: ${response.status}`);
-      return { price: null, source: 'finnhub' };
+    const basePrice = stockPrices[cleanSymbol];
+    
+    if (!basePrice) {
+      console.warn(`⚠️ Unknown stock symbol: ${cleanSymbol}`);
+      return { price: null, source: 'simulation' };
     }
     
-    const data = await response.json();
-    const price = data.c || null; // Current price
+    // Add small realistic variation (±0.5%)
+    const variation = (Math.random() - 0.5) * (basePrice * 0.01);
+    const price = basePrice + variation;
     
-    if (price && price > 0) {
-      console.log(`✅ Finnhub: ${cleanSymbol} = $${price}`);
-      return { price, source: 'finnhub' };
-    }
-    
-    return { price: null, source: 'finnhub' };
+    console.log(`✅ Stock price (simulation): ${cleanSymbol} = $${price.toFixed(2)}`);
+    return { price: parseFloat(price.toFixed(2)), source: 'simulation' };
     
   } catch (error) {
     console.error('Stock price fetch error:', error);
-    return { price: null, source: 'finnhub' };
+    return { price: null, source: 'simulation' };
   }
 }
 

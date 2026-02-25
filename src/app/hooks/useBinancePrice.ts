@@ -26,14 +26,30 @@ export function useBinancePrice() {
   const subscribe = (tvSymbol: string, callback: PriceCallback) => {
     console.log(`📡 [useBinancePrice] Subscribing to ${tvSymbol}`);
 
+    // Convert TradingView symbol to simple format for unified service
+    // BINANCE:BTCUSDT → BTCUSD
+    let cleanSymbol = tvSymbol
+      .replace('BINANCE:', '')
+      .replace('BITSTAMP:', '')
+      .replace('TVC:', '')
+      .replace('USDT', 'USD');
+    
+    console.log(`🔄 [useBinancePrice] Converted ${tvSymbol} → ${cleanSymbol}`);
+
     // Subscribe via unified service
-    const unsubscribe = unifiedPriceService.subscribe(tvSymbol, (priceData) => {
+    const unsubscribe = unifiedPriceService.subscribe(cleanSymbol, (priceData) => {
+      console.log(`💰 [useBinancePrice] CALLBACK RECEIVED for ${tvSymbol}:`, priceData);
+      
       // Convert to expected format
-      callback({
+      const convertedData = {
         symbol: tvSymbol,
         price: priceData.price,
         timestamp: priceData.timestamp
-      });
+      };
+      
+      console.log(`📤 [useBinancePrice] Calling parent callback with:`, convertedData);
+      callback(convertedData);
+      console.log(`✅ [useBinancePrice] Parent callback executed for ${tvSymbol}`);
     });
 
     // Store unsubscribe function
