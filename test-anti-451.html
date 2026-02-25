@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Anti-451 Fix</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { color: #22c55e; }
+    .box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .success { color: #22c55e; }
+    .error { color: #ef4444; }
+    .warning { color: #f59e0b; }
+    button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover { background: #2563eb; }
+    pre {
+      background: #0f172a;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      border: 1px solid #334155;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .badge-success { background: #22c55e; color: #000; }
+    .badge-error { background: #ef4444; color: #fff; }
+    .badge-info { background: #3b82f6; color: #fff; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Test Anti-451 Fix - Investoft</h1>
+  
+  <div class="box">
+    <h2>Step 1: Enter Your Project ID</h2>
+    <input 
+      type="text" 
+      id="projectId" 
+      placeholder="YOUR_PROJECT_ID" 
+      style="width: 400px; padding: 10px; font-size: 16px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; border-radius: 6px;"
+    />
+    <p style="color: #94a3b8; font-size: 14px;">
+      Find this in Supabase Dashboard → Settings → API → Project URL<br>
+      Example: https://<strong>abc123xyz</strong>.supabase.co → Enter: <strong>abc123xyz</strong>
+    </p>
+  </div>
+
+  <div class="box">
+    <h2>Step 2: Test Endpoint</h2>
+    <button onclick="testBinanceProxy()">🧪 Test /binance/ticker/24hr</button>
+    <button onclick="clearResults()">🗑️ Clear</button>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    async function testBinanceProxy() {
+      const projectId = document.getElementById('projectId').value.trim();
+      
+      if (!projectId) {
+        showResult('error', '❌ Please enter your Project ID first!');
+        return;
+      }
+
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<p class="warning">⏳ Testing endpoint...</p>';
+
+      const url = `https://${projectId}.supabase.co/functions/v1/make-server-20da1dab/binance/ticker/24hr`;
+      
+      try {
+        console.log('🔄 Testing:', url);
+        
+        const startTime = Date.now();
+        const response = await fetch(url);
+        const elapsed = Date.now() - startTime;
+        
+        console.log('📊 Status:', response.status);
+        console.log('⏱️ Time:', elapsed + 'ms');
+        
+        const priceSource = response.headers.get('X-Price-Source');
+        const data = await response.json();
+        
+        if (response.ok) {
+          const tickerCount = Array.isArray(data) ? data.length : 0;
+          
+          let html = `
+            <div style="margin-top: 20px;">
+              <h3 class="success">✅ SUCCESS!</h3>
+              <p><strong>Status:</strong> ${response.status} OK</p>
+              <p><strong>Response Time:</strong> ${elapsed}ms</p>
+              <p><strong>Price Source:</strong> <span class="status-badge ${priceSource === 'binance' ? 'badge-success' : 'badge-info'}">${priceSource || 'unknown'}</span></p>
+              <p><strong>Tickers Received:</strong> ${tickerCount}</p>
+              
+              <h4>Sample Data (first 5 tickers):</h4>
+              <pre>${JSON.stringify(data.slice(0, 5), null, 2)}</pre>
+              
+              <h4>Bitcoin Price Check:</h4>
+          `;
+          
+          const btcTicker = data.find(t => t.symbol === 'BTCUSDT');
+          if (btcTicker) {
+            html += `
+              <pre>
+Symbol: ${btcTicker.symbol}
+Price: $${parseFloat(btcTicker.lastPrice).toLocaleString()}
+Change 24h: ${btcTicker.priceChange}
+Change %: ${btcTicker.priceChangePercent}%
+              </pre>
+            `;
+          } else {
+            html += `<p class="warning">⚠️ BTCUSDT not found in response</p>`;
+          }
+          
+          html += `
+              <h4>Interpretation:</h4>
+              <ul>
+                ${priceSource === 'binance' ? 
+                  '<li class="success">✅ Binance API working - NO 451 ERROR!</li>' : 
+                  '<li class="warning">⚠️ Using CoinGecko fallback (Binance blocked)</li>'
+                }
+                <li>✅ Backend proxy functioning correctly</li>
+                <li>✅ CORS headers working</li>
+                <li>✅ Data format correct</li>
+              </ul>
+            </div>
+          `;
+          
+          resultsDiv.innerHTML = html;
+        } else {
+          resultsDiv.innerHTML = `
+            <div style="margin-top: 20px;">
+              <h3 class="error">❌ ERROR</h3>
+              <p><strong>Status:</strong> ${response.status}</p>
+              <p><strong>Response Time:</strong> ${elapsed}ms</p>
+              <h4>Error Response:</h4>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+              
+              <h4>Troubleshooting:</h4>
+              <ul>
+                <li>Check if you deployed the function: <code>supabase functions deploy make-server-20da1dab</code></li>
+                <li>Verify Project ID is correct</li>
+                <li>Check Supabase Edge Functions logs for errors</li>
+              </ul>
+            </div>
+          `;
+        }
+      } catch (error) {
+        resultsDiv.innerHTML = `
+          <div style="margin-top: 20px;">
+            <h3 class="error">❌ FETCH ERROR</h3>
+            <p><strong>Error:</strong> ${error.message}</p>
+            
+            <h4>Troubleshooting:</h4>
+            <ul>
+              <li>Check your internet connection</li>
+              <li>Verify Project ID is correct</li>
+              <li>Make sure Edge Functions are deployed</li>
+              <li>Check browser console for CORS errors</li>
+            </ul>
+          </div>
+        `;
+        console.error('❌ Error:', error);
+      }
+    }
+
+    function showResult(type, message) {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = `<p class="${type}" style="margin-top: 20px;">${message}</p>`;
+    }
+
+    function clearResults() {
+      document.getElementById('results').innerHTML = '';
+    }
+  </script>
+</body>
+</html>

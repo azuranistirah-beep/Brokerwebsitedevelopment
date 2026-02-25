@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '39.0.0-ANTI-451'; // FIXED: Multiple endpoints + CoinGecko fallback!
+    const version = '39.1.0-BACKEND-451-FIX'; // FIXED: Backend with multiple endpoints!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,12 +31,13 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 39.0.0 - ANTI 451 ERROR!');
+    console.log('✅ [App] Version 39.1.0 - BACKEND 451 FIX!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔧 FIXED: Multiple Binance endpoints (api, api1, api2, api3)');
-    console.log('🔧 FIXED: CoinGecko fallback if Binance blocked (451)');
-    console.log('🔧 User-Agent header to bypass blocking');
-    console.log('💡 Price sources: Binance → CoinGecko (automatic)');
+    console.log('🔧 FIXED: Backend route /binance/ticker/24hr updated!');
+    console.log('🔧 Multiple Binance endpoints (api, api1, api2, api3, data-api)');
+    console.log('🔧 CoinGecko fallback automatic (46 crypto symbols)');
+    console.log('💡 Price sources: Binance → CoinGecko (seamless)');
+    console.log('📡 Check Network tab for X-Price-Source header!');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);
