@@ -257,38 +257,31 @@ class UnifiedPriceService {
           const changePercent24h = parseFloat(ticker.priceChangePercent);
           const openPrice = parseFloat(ticker.openPrice);
           
-          console.log(`✅ [Binance] Found ticker for ${binanceSymbol}:`);
-          console.log(`   Price: ${price}`);
-          console.log(`   Change: ${change24h}`);
-          console.log(`   Change%: ${changePercent24h}`);
-          
-          const priceData: PriceData = {
-            price: price,
+          // Store latest price
+          this.latestPrices.set(binanceSymbol, {
+            price,
             change: change24h,
             changePercent: changePercent24h,
-            change24h: change24h,
-            changePercent24h: changePercent24h,
+            change24h,
+            changePercent24h,
             basePrice: openPrice,
             timestamp: Date.now(),
-          };
-
-          // Update cache
-          this.latestPrices.set(binanceSymbol, priceData);
-          console.log(`💾 [Binance] Cached price for ${binanceSymbol}: $${price}`);
-
-          // Notify subscribers
-          const subscribers = this.subscribers.get(binanceSymbol);
-          console.log(`📢 [Binance] Notifying ${subscribers?.size || 0} subscribers for ${binanceSymbol}`);
+          });
           
-          if (subscribers) {
-            subscribers.forEach((sub, index) => {
-              try {
-                console.log(`   📡 Calling subscriber #${index + 1} callback...`);
-                sub.callback(priceData);
-                console.log(`   ✅ Subscriber #${index + 1} callback executed!`);
-              } catch (error) {
-                console.error(`❌ [Binance] Subscriber callback error:`, error);
-              }
+          // Notify all subscribers for this symbol
+          const subs = this.subscribers.get(binanceSymbol);
+          if (subs && subs.size > 0) {
+            console.log(`📤 [Binance] Notifying ${subs.size} subscribers for ${binanceSymbol}`);
+            subs.forEach(sub => {
+              sub.callback({
+                price,
+                change: change24h,
+                changePercent: changePercent24h,
+                change24h,
+                changePercent24h,
+                basePrice: openPrice,
+                timestamp: Date.now(),
+              });
             });
           } else {
             console.warn(`⚠️ [Binance] No subscribers found for ${binanceSymbol}!`);

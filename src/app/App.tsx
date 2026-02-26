@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '41.2.1-SYNTAX-FIX'; // FIXED: Removed invalid escape sequences!
+    const version = '41.3.2-FIXED-BINANCE'; // FIXED: Restored missing price update logic!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,16 +31,10 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 41.2.1 - SYNTAX FIX!');
+    console.log('✅ [App] Version 41.3.2 - BINANCE FIXED!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔧 FIXED: Syntax error in console.log');
-    console.log('🪙 Gold/Silver/Oil use Yahoo Finance!');
-    console.log('   - Crypto: Binance WebSocket (live)');
-    console.log('   - Commodities: Yahoo Finance via PriceContext');
-    console.log('');
-    console.log('🎉 Real-time prices working perfectly:');
-    console.log('   ✅ Gold/Silver/Oil: Yahoo Finance (10s refresh)');
-    console.log('   ✅ Crypto: Binance WebSocket (live streaming)');
+    console.log('🔧 Fixed: Restored price update logic in unifiedPriceService');
+    console.log('🪙 Gold price sync with detailed debugging!');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);

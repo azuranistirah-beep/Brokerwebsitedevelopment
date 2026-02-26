@@ -332,17 +332,38 @@ export function MemberDashboard() {
   useEffect(() => {
     const isCommodity = selectedAsset.category === "Commodity";
     
-    if (isCommodity && contextPrices[selectedAsset.symbol]) {
+    console.log('🔍 [PriceSync] Checking for price update...');
+    console.log(`   Symbol: ${selectedAsset.symbol}`);
+    console.log(`   Category: ${selectedAsset.category}`);
+    console.log(`   Is Commodity: ${isCommodity}`);
+    console.log(`   Has contextPrices: ${!!contextPrices}`);
+    
+    // Safe way to get keys
+    if (contextPrices && Object.keys(contextPrices).length > 0) {
+      console.log(`   contextPrices keys: ${Object.keys(contextPrices).join(', ')}`);
+    } else {
+      console.log('   contextPrices keys: (empty)');
+    }
+    
+    if (isCommodity) {
       const priceData = contextPrices[selectedAsset.symbol];
       
-      // Only update if price is different
-      if (priceData.price !== currentPrice) {
+      if (priceData) {
+        console.log(`   contextPrices["${selectedAsset.symbol}"] exists!`);
+        console.log(`   Price from context: $${priceData.price.toFixed(2)}`);
+        console.log(`   Current price state: $${currentPrice.toFixed(2)}`);
+        
+        // Always update for commodities (remove the condition check)
         setCurrentPrice(prev => {
           setPreviousPrice(prev);
           console.log(`🪙 [${selectedAsset.symbol}] YAHOO FINANCE UPDATE: $${prev.toFixed(2)} → $${priceData.price.toFixed(2)}`);
           return priceData.price;
         });
+      } else {
+        console.log(`   ⚠️ No price data for ${selectedAsset.symbol} in contextPrices!`);
       }
+    } else {
+      console.log(`   ℹ️ Not a commodity, skipping PriceContext sync`);
     }
   }, [contextPrices, selectedAsset.symbol, selectedAsset.category, currentPrice]);
 
