@@ -12,6 +12,7 @@ const ChartPage = lazy(() => import("./components/ChartPage"));
 const ScreenerPage = lazy(() => import("./components/ScreenerPage"));
 const MemberDashboard = lazy(() => import("./components/MemberDashboard"));
 const MobileTradingDashboard = lazy(() => import("./components/MobileTradingDashboard"));
+const ProTradingDashboard = lazy(() => import("./components/ProTradingDashboard"));
 const NewAdminDashboard = lazy(() => import("./components/NewAdminDashboard"));
 const AdminSetupPage = lazy(() => import("./components/AdminSetupPage"));
 const AdminFirstSetup = lazy(() => import("./components/AdminFirstSetup"));
@@ -103,7 +104,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "member",
-        element: <LazyComponent Component={MemberDashboard} />, // ✅ RESTORED: Clean professional dashboard
+        element: <LazyComponent Component={ProTradingDashboard} />, // ✅ NEW: Professional trading dashboard matching design spec!
       },
       {
         path: "member-mobile",
@@ -112,6 +113,10 @@ export const router = createBrowserRouter([
       {
         path: "member-old",
         element: <LazyComponent Component={MemberDashboard} />, // ✅ Keep old version for reference
+      },
+      {
+        path: "member-pro",
+        element: <LazyComponent Component={ProTradingDashboard} />, // ✅ Pro version (same as /member)
       },
       {
         path: "admin",

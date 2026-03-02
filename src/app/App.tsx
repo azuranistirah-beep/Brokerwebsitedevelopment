@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '41.3.2-FIXED-BINANCE'; // FIXED: Restored missing price update logic!
+    const version = '42.0.5-PRO-CONTAINER-FIX'; // FIXED: TradingView container timing dengan 500ms delay!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,10 +31,13 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 41.3.2 - BINANCE FIXED!');
+    console.log('✅ [App] Version 42.0.5 - PRO TRADING STABLE!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔧 Fixed: Restored price update logic in unifiedPriceService');
-    console.log('🪙 Gold price sync with detailed debugging!');
+    console.log('🔧 FIXED: TradingView container dengan 500ms delay!');
+    console.log('✅ FIXED: requestAnimationFrame untuk DOM ready!');
+    console.log('✅ FIXED: Chart container timing issues!');
+    console.log('🎨 Professional trading dashboard 100% working!');
+    console.log('🚀 Route: /member atau /member-pro');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);
