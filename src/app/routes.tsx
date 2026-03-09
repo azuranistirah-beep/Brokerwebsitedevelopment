@@ -32,6 +32,10 @@ const SupabaseTestPage = lazy(() => import("./components/SupabaseTestPage"));
 const QuickFixDashboard = lazy(() => import("./components/QuickFixDashboard"));
 const DeploymentGuide = lazy(() => import("./components/DeploymentGuide"));
 const ManualDeploymentHelper = lazy(() => import("./components/ManualDeploymentHelper"));
+const QuickSignup = lazy(() => import("./components/QuickSignup"));
+const BackendRouteTest = lazy(() => import("./components/BackendRouteTest"));
+const DirectSignup = lazy(() => import("./components/DirectSignup"));
+const PasswordResetUtility = lazy(() => import("./components/PasswordResetUtility"));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -193,6 +197,22 @@ export const router = createBrowserRouter([
       {
         path: "manual-deployment-helper",
         element: <LazyComponent Component={ManualDeploymentHelper} />,
+      },
+      {
+        path: "quick-signup",
+        element: <LazyComponent Component={QuickSignup} />,
+      },
+      {
+        path: "backend-route-test",
+        element: <LazyComponent Component={BackendRouteTest} />,
+      },
+      {
+        path: "direct-signup",
+        element: <LazyComponent Component={DirectSignup} />,
+      },
+      {
+        path: "password-reset-utility",
+        element: <LazyComponent Component={PasswordResetUtility} />,
       },
       {
         path: "*",

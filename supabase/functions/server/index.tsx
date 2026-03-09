@@ -415,7 +415,7 @@ app.get('/make-server-20da1dab/binance/ticker/24hr', async (c) => {
     if (binanceResult.success) {
       console.log(`✅ [Binance] Success! Source: ${binanceResult.source}`);
       console.log(`📊 Returning ${binanceResult.data.length} tickers`);
-      console.log('═════════════════════════��═════════════════════');
+      console.log('══════════════════════════════════════════════');
       console.log('');
       
       return c.json(binanceResult.data, {
@@ -512,6 +512,64 @@ app.get('/make-server-20da1dab/binance/ticker/price', async (c) => {
 });
 
 // ========== AUTHENTICATION & USER ROUTES ==========
+
+/**
+ * ✅ RESET TEST MEMBER PASSWORD (EMERGENCY FIX)
+ * POST /make-server-20da1dab/reset-test-password
+ * Body: { email: "azuranistirah@gmail.com" }
+ */
+app.post('/make-server-20da1dab/reset-test-password', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { email } = body;
+    
+    console.log('🔑 [Reset Password] Request for:', email);
+    
+    if (!email) {
+      return c.json({ error: 'Email required' }, { status: 400 });
+    }
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    
+    // Get user by email
+    const { data: listData } = await supabase.auth.admin.listUsers();
+    const user = listData?.users.find(u => u.email === email);
+    
+    if (!user) {
+      console.log('❌ [Reset Password] User not found:', email);
+      return c.json({ error: 'User not found' }, { status: 404 });
+    }
+    
+    console.log('✅ [Reset Password] User found:', user.id);
+    
+    // Update password to Sundala99!
+    const { data: updateData, error: updateError } = await supabase.auth.admin.updateUserById(
+      user.id,
+      { password: 'Sundala99!' }
+    );
+    
+    if (updateError) {
+      console.error('❌ [Reset Password] Update error:', updateError);
+      return c.json({ error: updateError.message }, { status: 400 });
+    }
+    
+    console.log('✅ [Reset Password] Password updated successfully!');
+    
+    return c.json({
+      success: true,
+      message: 'Password reset to: Sundala99!',
+      email: email,
+      user_id: user.id,
+    });
+    
+  } catch (error: any) {
+    console.error('❌ [Reset Password] Error:', error);
+    return c.json({ error: error.message }, { status: 500 });
+  }
+});
 
 /**
  * ✅ CREATE TEST MEMBER

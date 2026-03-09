@@ -12,7 +12,7 @@ export function LandingPage() {
   const navigate = useNavigate();
   
   const handleSignupClick = () => {
-    navigate('/login');
+    navigate('/direct-signup');
   };
 
   return (

@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '42.0.7-BACKEND-READY'; // FIXED: Backend routes + multi-key login!
+    const version = '42.2.0-PASSWORD-RESET-FIX'; // ADDED: Password reset utility
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,20 +31,28 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 42.0.7 - 100% WORKING!');
+    console.log('✅ [App] Version 42.2.0 - PASSWORD RESET FIX!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔧 BACKEND: Routes created (user/profile, trades/open)!');
-    console.log('✅ LOGIN: Multi-key localStorage check working!');
-    console.log('✅ DASHBOARD: ProTradingDashboard ready!');
-    console.log('🎨 Professional trading UI 100% functional!');
     console.log('');
-    console.log('📍 LOGIN:');
-    console.log('   Email: azuranistirah@gmail.com');
-    console.log('   Password: Sundala99!');
+    console.log('🔑 SOLUSI LOGIN ERROR "Invalid login credentials":');
     console.log('');
-    console.log('📍 ROUTES:');
-    console.log('   /login  → Login page');
-    console.log('   /member → Professional trading dashboard');
+    console.log('   STEP 1 - RESET PASSWORD:');
+    console.log('   → Go to: http://localhost:5173/password-reset-utility');
+    console.log('   → Click: "Reset Password Now"');
+    console.log('   → Tunggu pesan SUCCESS');
+    console.log('');
+    console.log('   STEP 2 - LOGIN:');
+    console.log('   → Click: "Go to Login Page" (atau go to /direct-signup)');
+    console.log('   → Email: azuranistirah@gmail.com');
+    console.log('   → Password: Sundala99!');
+    console.log('   → Click: "Create Account & Login"');
+    console.log('   → Done! 🎉');
+    console.log('');
+    console.log('📍 AVAILABLE ROUTES:');
+    console.log('   /password-reset-utility  → ⭐ FIX LOGIN ERROR');
+    console.log('   /direct-signup           → Login/Signup page');
+    console.log('   /member                  → Trading dashboard');
+    console.log('   /backend-route-test      → Test backend');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);
