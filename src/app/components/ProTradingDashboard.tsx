@@ -117,12 +117,21 @@ export default function ProTradingDashboard() {
   useEffect(() => {
     const loadUserProfile = async () => {
       try {
-        const token = localStorage.getItem("access_token");
+        // ✅ Try multiple localStorage keys for backwards compatibility
+        const token = 
+          localStorage.getItem("access_token") || 
+          localStorage.getItem("accessToken") || 
+          localStorage.getItem("investoft_access_token") ||
+          localStorage.getItem("investoft_token");
+          
         if (!token) {
+          console.error("❌ No access token found in localStorage");
+          console.log("📋 Available keys:", Object.keys(localStorage));
           navigate("/login");
           return;
         }
 
+        console.log("✅ Access token found:", token.substring(0, 20) + "...");
         setAccessToken(token);
 
         const response = await fetch(
@@ -134,12 +143,16 @@ export default function ProTradingDashboard() {
 
         if (response.ok) {
           const data = await response.json();
+          console.log("✅ User profile loaded:", data);
           setUserProfile(data);
         } else {
+          console.error("❌ Failed to load profile, status:", response.status);
+          const errorText = await response.text();
+          console.error("❌ Error response:", errorText);
           navigate("/login");
         }
       } catch (error) {
-        console.error("Error loading profile:", error);
+        console.error("❌ Error loading profile:", error);
         navigate("/login");
       }
     };

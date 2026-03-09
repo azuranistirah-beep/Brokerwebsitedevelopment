@@ -415,7 +415,7 @@ app.get('/make-server-20da1dab/binance/ticker/24hr', async (c) => {
     if (binanceResult.success) {
       console.log(`✅ [Binance] Success! Source: ${binanceResult.source}`);
       console.log(`📊 Returning ${binanceResult.data.length} tickers`);
-      console.log('═══════════════════════════════════════════════');
+      console.log('═════════════════════════��═════════════════════');
       console.log('');
       
       return c.json(binanceResult.data, {
@@ -511,17 +511,233 @@ app.get('/make-server-20da1dab/binance/ticker/price', async (c) => {
   }
 });
 
+// ========== AUTHENTICATION & USER ROUTES ==========
+
 /**
- * ✅ CATCH-ALL ROUTE
+ * ✅ CREATE TEST MEMBER
+ * POST /make-server-20da1dab/create-test-member
  */
+app.post('/make-server-20da1dab/create-test-member', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { email, password, name, initial_balance = 10000 } = body;
+    
+    console.log('🔐 [Create Test Member] Request:', { email, name, initial_balance });
+    
+    if (!email || !password) {
+      return c.json({ error: 'Email and password required' }, { status: 400 });
+    }
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    
+    // Check if user already exists
+    const { data: existingUser } = await supabase.auth.admin.listUsers();
+    const userExists = existingUser?.users.some(u => u.email === email);
+    
+    if (userExists) {
+      console.log('⚠️ [Create Test Member] User already exists:', email);
+      return c.json({ existing: true, message: 'User already exists' });
+    }
+    
+    // Create user with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        name: name || email.split('@')[0],
+        role: 'member',
+      },
+    });
+    
+    if (authError) {
+      console.error('❌ [Create Test Member] Auth error:', authError);
+      return c.json({ error: authError.message }, { status: 400 });
+    }
+    
+    console.log('✅ [Create Test Member] User created:', authData.user.id);
+    
+    // Store user profile in KV store
+    const userId = authData.user.id;
+    await kv.set(`user:${userId}:profile`, {
+      email,
+      name: name || email.split('@')[0],
+      demo_balance: initial_balance,
+      real_balance: 0,
+      total_trades: 0,
+      winning_trades: 0,
+      losing_trades: 0,
+      created_at: new Date().toISOString(),
+    });
+    
+    console.log('✅ [Create Test Member] Profile saved to KV store');
+    
+    return c.json({
+      success: true,
+      user_id: userId,
+      email,
+      message: 'Test member created successfully',
+    });
+    
+  } catch (error: any) {
+    console.error('❌ [Create Test Member] Error:', error);
+    return c.json({ error: error.message }, { status: 500 });
+  }
+});
+
+/**
+ * ✅ GET USER PROFILE
+ * GET /make-server-20da1dab/user/profile
+ */
+app.get('/make-server-20da1dab/user/profile', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader) {
+      return c.json({ error: 'Missing Authorization header' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+    );
+    
+    // Verify token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      console.error('❌ [User Profile] Auth error:', authError);
+      return c.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    
+    console.log('✅ [User Profile] User authenticated:', user.id);
+    
+    // Get profile from KV store
+    const profile = await kv.get(`user:${user.id}:profile`);
+    
+    if (!profile) {
+      // Create default profile if doesn't exist
+      const defaultProfile = {
+        email: user.email,
+        name: user.user_metadata?.name || user.email?.split('@')[0] || 'Member',
+        demo_balance: 10000,
+        real_balance: 0,
+        total_trades: 0,
+        winning_trades: 0,
+        losing_trades: 0,
+        created_at: new Date().toISOString(),
+      };
+      
+      await kv.set(`user:${user.id}:profile`, defaultProfile);
+      console.log('✅ [User Profile] Created default profile');
+      
+      return c.json(defaultProfile);
+    }
+    
+    console.log('✅ [User Profile] Profile found:', profile);
+    return c.json(profile);
+    
+  } catch (error: any) {
+    console.error('❌ [User Profile] Error:', error);
+    return c.json({ error: error.message }, { status: 500 });
+  }
+});
+
+/**
+ * ✅ OPEN TRADE
+ * POST /make-server-20da1dab/trades/open
+ */
+app.post('/make-server-20da1dab/trades/open', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader) {
+      return c.json({ error: 'Missing Authorization header' }, { status: 401 });
+    }
+    
+    const token = authHeader.replace('Bearer ', '');
+    const body = await c.req.json();
+    const { asset, type, amount, entry_price, duration, account_type = 'demo' } = body;
+    
+    console.log('📈 [Open Trade] Request:', { asset, type, amount, entry_price, duration, account_type });
+    
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+    );
+    
+    // Verify token
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return c.json({ error: 'Invalid token' }, { status: 401 });
+    }
+    
+    // Get user profile
+    const profile = await kv.get(`user:${user.id}:profile`);
+    if (!profile) {
+      return c.json({ error: 'User profile not found' }, { status: 404 });
+    }
+    
+    // Check balance
+    const balance = account_type === 'demo' ? profile.demo_balance : profile.real_balance;
+    if (balance < amount) {
+      return c.json({ error: 'Insufficient balance' }, { status: 400 });
+    }
+    
+    // Deduct balance
+    const balanceKey = account_type === 'demo' ? 'demo_balance' : 'real_balance';
+    profile[balanceKey] -= amount;
+    
+    // Create trade
+    const tradeId = crypto.randomUUID();
+    const now = Date.now();
+    const expiresAt = now + (duration * 1000);
+    
+    const trade = {
+      id: tradeId,
+      user_id: user.id,
+      asset,
+      type,
+      amount,
+      entry_price,
+      entry_time: now,
+      expires_at: expiresAt,
+      duration,
+      account_type,
+      status: 'open',
+      created_at: new Date().toISOString(),
+    };
+    
+    // Save trade
+    await kv.set(`trade:${tradeId}`, trade);
+    await kv.set(`user:${user.id}:trade:${tradeId}`, trade);
+    
+    // Update profile
+    await kv.set(`user:${user.id}:profile`, profile);
+    
+    console.log('✅ [Open Trade] Trade opened:', tradeId);
+    
+    return c.json({
+      success: true,
+      trade_id: tradeId,
+      expires_at: expiresAt,
+      new_balance: profile[balanceKey],
+    });
+    
+  } catch (error: any) {
+    console.error('❌ [Open Trade] Error:', error);
+    return c.json({ error: error.message }, { status: 500 });
+  }
+});
+
+// Fallback for unknown routes
 app.all('*', (c) => {
-  console.log(`⚠️ [Server] Unknown route: ${c.req.method} ${c.req.url}`);
   return c.json(
-    { 
-      error: 'Route not found',
-      path: new URL(c.req.url).pathname,
-      method: c.req.method,
-    },
+    { error: 'Route not found', path: c.req.path },
     { status: 404 }
   );
 });

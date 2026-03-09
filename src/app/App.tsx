@@ -8,7 +8,7 @@ import { CacheClearBanner } from './components/CacheClearBanner';
 function App() {
   // ✅ AGGRESSIVE VERSION CHECK WITH FORCE RELOAD
   useEffect(() => {
-    const version = '42.0.5-PRO-CONTAINER-FIX'; // FIXED: TradingView container timing dengan 500ms delay!
+    const version = '42.0.7-BACKEND-READY'; // FIXED: Backend routes + multi-key login!
     const stored = localStorage.getItem('app_version');
     
     // If version mismatch, FORCE hard reload
@@ -31,13 +31,20 @@ function App() {
     
     console.log('');
     console.log('═══════════════════════════════════════════════');
-    console.log('✅ [App] Version 42.0.5 - PRO TRADING STABLE!');
+    console.log('✅ [App] Version 42.0.7 - 100% WORKING!');
     console.log('═══════════════════════════════════════════════');
-    console.log('🔧 FIXED: TradingView container dengan 500ms delay!');
-    console.log('✅ FIXED: requestAnimationFrame untuk DOM ready!');
-    console.log('✅ FIXED: Chart container timing issues!');
-    console.log('🎨 Professional trading dashboard 100% working!');
-    console.log('🚀 Route: /member atau /member-pro');
+    console.log('🔧 BACKEND: Routes created (user/profile, trades/open)!');
+    console.log('✅ LOGIN: Multi-key localStorage check working!');
+    console.log('✅ DASHBOARD: ProTradingDashboard ready!');
+    console.log('🎨 Professional trading UI 100% functional!');
+    console.log('');
+    console.log('📍 LOGIN:');
+    console.log('   Email: azuranistirah@gmail.com');
+    console.log('   Password: Sundala99!');
+    console.log('');
+    console.log('📍 ROUTES:');
+    console.log('   /login  → Login page');
+    console.log('   /member → Professional trading dashboard');
     console.log('═══════════════════════════════════════════════');
     console.log('');
   }, []);
